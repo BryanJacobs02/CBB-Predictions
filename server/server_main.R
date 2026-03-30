@@ -112,10 +112,11 @@ server <- function(input, output, session) {
       tidyr::pivot_longer(-TeamName, names_to = "Stat")
     
     plot_ly(stats_long, x = ~Stat, y = ~value, color = ~TeamName,
-            type = "bar", barmode = "group",
+            type = "bar",
             text = ~glue("{value}th percentile"),
             hoverinfo = "text+x+name") |>
       layout(
+        barmode = "group",
         yaxis = list(title = "Percentile rank (100 = best)",
                      range = c(0, 100)),
         xaxis = list(title = ""),
