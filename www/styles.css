@@ -350,3 +350,12 @@ h1, h2, h3, h4, h5, h6, p, label, .text-muted {
 .irs-bar, .irs-bar-edge { background: var(--accent) !important; }
 .irs-single { background: var(--accent) !important; }
 .irs-line { background: var(--border) !important; }
+
+.main-header .logo .logo-lg {
+  font-family: 'Barlow Condensed', sans-serif !important;
+  font-weight: 900 !important;
+  font-size: 1.5rem !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: #58a6ff !important;
+}
