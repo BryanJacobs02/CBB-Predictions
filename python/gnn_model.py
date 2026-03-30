@@ -12,7 +12,7 @@ class TeamGNN(torch.nn.Module):
     def forward(self, x, edge_index, edge_attr=None):
         x = F.elu(self.gat1(x, edge_index))
         x = self.gat2(x, edge_index)
-        return x  # [num_teams, out_channels]
+        return x  # [num_teams, out_channels=32]
 
 
 class MatchupPredictor(torch.nn.Module):
@@ -20,11 +20,11 @@ class MatchupPredictor(torch.nn.Module):
         super().__init__()
         self.embed_dim = embed_dim
 
-        # Project per-game features to embed_dim if dimensions differ
-        self.feat_proj = None
-        if feat_dim is not None and feat_dim != embed_dim:
-            self.feat_proj = torch.nn.Linear(feat_dim, embed_dim)
+        # Project per-game features to embed_dim
+        actual_feat_dim = feat_dim if feat_dim is not None else embed_dim
+        self.feat_proj = torch.nn.Linear(actual_feat_dim, embed_dim)
 
+        # After blending: each team vector is embed_dim, concat = embed_dim * 2
         self.fc1      = torch.nn.Linear(embed_dim * 2, hidden)
         self.fc2      = torch.nn.Linear(hidden, hidden // 2)
         self.win_prob = torch.nn.Linear(hidden // 2, 1)
@@ -32,11 +32,8 @@ class MatchupPredictor(torch.nn.Module):
         self.score_b  = torch.nn.Linear(hidden // 2, 1)
 
     def project_feats(self, fa, fb):
-        """Project per-game features to embed_dim if needed."""
-        if self.feat_proj is not None:
-            fa = self.feat_proj(fa)
-            fb = self.feat_proj(fb)
-        return fa, fb
+        """Always project features to embed_dim."""
+        return self.feat_proj(fa), self.feat_proj(fb)
 
     def forward(self, emb_a, emb_b):
         x = torch.cat([emb_a, emb_b], dim=-1)
