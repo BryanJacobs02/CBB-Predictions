@@ -1,0 +1,10 @@
+name: cbb-predictor-v2
+title:
+username: bryan-jacobs
+account: bryan-jacobs
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 17021012
+bundleId: 11783327
+url: https://bryan-jacobs.shinyapps.io/cbb-predictor-v2/
+version: 1
