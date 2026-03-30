@@ -82,22 +82,26 @@ server <- function(input, output, session) {
   
   output$stat_comparison <- renderPlotly({
     req(prediction())
-    p          <- prediction()
-    all_ratings <- get_ratings()
-    
-    ratings <- all_ratings |>
-      filter(TeamName %in% c(p$team_a, p$team_b)) |>
+    p           <- prediction()
+    all_ratings <- get_ratings() |>
       group_by(TeamName) |>
       slice(1) |>
-      ungroup() |>
-      select(TeamName, AdjOE, AdjDE, AdjTempo, AdjEM)
+      ungroup()
+    
+    ratings <- all_ratings |>
+      filter(TeamName %in% c(p$team_a, p$team_b))
+    
+    if (nrow(ratings) < 2) return(plot_ly() |>
+                                    layout(title = "Team data not found"))
     
     numeric_cols <- c("AdjOE", "AdjDE", "AdjTempo", "AdjEM")
     
     ratings_pct <- ratings |>
+      select(TeamName, all_of(numeric_cols)) |>
       mutate(AdjDE = -AdjDE) |>
       mutate(across(all_of(numeric_cols), function(col_val) {
         all_vals <- all_ratings[[cur_column()]]
+        if (cur_column() == "AdjDE") all_vals <- -all_vals
         round(100 * rank(col_val, ties.method = "average") /
                 length(all_vals))
       })) |>
@@ -117,10 +121,11 @@ server <- function(input, output, session) {
             hoverinfo = "text+x+name") |>
       layout(
         barmode = "group",
-        yaxis = list(title = "Percentile rank (100 = best)",
-                     range = c(0, 100)),
-        xaxis = list(title = ""),
-        legend = list(orientation = "h", y = -0.2)
+        title   = glue("{p$team_a} vs {p$team_b}"),
+        yaxis   = list(title = "Percentile rank (100 = best)",
+                       range = c(0, 100)),
+        xaxis   = list(title = ""),
+        legend  = list(orientation = "h", y = -0.2)
       )
   })
   
