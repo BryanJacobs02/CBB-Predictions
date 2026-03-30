@@ -15,9 +15,10 @@ ui <- dashboardPage(
   dashboardSidebar(
     sidebarMenu(
       menuItem("Predict Matchup", tabName = "predict", icon = icon("basketball-ball")),
-      menuItem("Train Model",     tabName = "train",   icon = icon("brain")),
-      menuItem("Team Stats",      tabName = "stats",   icon = icon("table")),
-      menuItem("Model Evaluation", tabName = "eval", icon = icon("chart-line"))
+      if (file.exists(".venv"))
+        menuItem("Train Model", tabName = "train", icon = icon("brain")),
+      menuItem("Team Stats",      tabName = "stats",  icon = icon("table")),
+      menuItem("Model Evaluation", tabName = "eval",  icon = icon("chart-line"))
     )
   ),
   
@@ -80,7 +81,8 @@ ui <- dashboardPage(
       ),
       
       # ── Train ─────────────────────────────────────────────────────────────
-      tabItem("train",
+      if (file.exists(".venv"))
+        tabItem("train",
               box(width = 12, title = "Model Training", status = "warning",
                   p("Trains the GNN on actual game results with point-in-time features.
                       Expect 5–10 minutes (500 epochs)."),
