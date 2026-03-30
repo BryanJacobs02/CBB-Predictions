@@ -25,7 +25,13 @@ ui <- dashboardPage(
   dashboardBody(
     tags$head(tags$title("LockBot 1.0"),
               tags$script("document.title = 'LockBot 1.0';"),
-              tags$link(rel = "stylesheet", type = "text/css", href = "styles.css")),
+              tags$link(rel = "stylesheet", type = "text/css", href = "styles.css"),
+              tags$meta(property = "og:title",       content = "LockBot 1.0"),
+              tags$meta(property = "og:description", content = "NCAA Basketball Score Predictor powered by a Graph Neural Network"),
+              tags$meta(property = "og:image",       content = "https://bryanjacobs.shinyapps.io/lockbot/preview.png"),
+              tags$meta(property = "og:type",        content = "website"),
+              tags$meta(name = "twitter:card",       content = "summary_large_image"),
+              tags$meta(name = "twitter:image",      content = "https://bryanjacobs.shinyapps.io/lockbot/preview.png")),
     
     do.call(tabItems, Filter(Negate(is.null), list(
       
