@@ -141,7 +141,7 @@ rsconnect::deployApp(
 
 ## AI Acknowledgment
 
-This project was built with the assistance of [Claude](https://claude.ai) (Anthropic) through a single extended conversation covering the full development lifecycle — architecture design, R and Python implementation, debugging, model tuning, data leakage remediation, UI design, and deployment. All code was written collaboratively with Claude and reviewed, tested, and iterated on by the author.
+This project was built with the assistance of [Claude](https://claude.ai) (Anthropic) through a single extended conversation covering the full development lifecycle of architecture design, R and Python implementation, debugging, model tuning, data leakage remediation, UI design, and deployment. All code was written collaboratively with Claude and reviewed, tested, and iterated on by the author.
 
 ## Contact
 
