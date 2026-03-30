@@ -118,10 +118,6 @@ ui <- dashboardPage(
                     p("Metrics computed on the most recent 20% of games, never seen during training."),
                     uiOutput("eval_summary")
                 )
-              ),
-              fluidRow(
-                box(width = 6,  title = "ROI Simulation vs -110 Line", plotlyOutput("roi_chart")),
-                box(width = 6,  title = "Win Probability Calibration", plotlyOutput("calibration_chart"))
               )
       )
     )
