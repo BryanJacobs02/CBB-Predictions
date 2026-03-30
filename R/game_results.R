@@ -533,15 +533,15 @@ build_actual_training_labels <- function(graph,
     away_feats <- safe_numeric(away_row, numeric_cols)
     
     tibble(
-      team_a_idx = idx[row$kp_away],
-      team_b_idx = idx[row$kp_home],
+      team_a_idx = idx[row$kp_home],
+      team_b_idx = idx[row$kp_away],
       winner     = as.integer(row$home_win),
-      score_a    = row$away_score,
-      score_b    = row$home_score,
+      score_a    = row$home_score,
+      score_b    = row$away_score,
       game_date  = as.character(row$game_date),
       neutral    = as.integer(row$neutral_site),
-      feats_a    = as.character(jsonlite::toJSON(away_feats)),
-      feats_b    = as.character(jsonlite::toJSON(home_feats))
+      feats_a    = as.character(jsonlite::toJSON(home_feats)),
+      feats_b    = as.character(jsonlite::toJSON(away_feats))
     )
   })
   
