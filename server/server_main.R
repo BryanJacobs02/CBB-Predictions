@@ -58,9 +58,12 @@ server <- function(input, output, session) {
       type  = "indicator",
       mode  = "gauge+number",
       value = round(g$win_prob_a * 100, 1),
-      title = list(text = glue("{p$team_a} Win Probability (%)")),
+      title = list(text = glue("{p$team_a} Win Prob (%)"),
+                   font = list(size = 12)),
+      number = list(font = list(size = 24)),
       gauge = list(
-        axis  = list(range = list(0, 100)),
+        axis  = list(range = list(0, 100),
+                     tickfont = list(size = 10)),
         bar   = list(color = "#4CAF50"),
         steps = list(
           list(range = c(0,  40), color = "#ffcdd2"),
@@ -69,21 +72,11 @@ server <- function(input, output, session) {
         ),
         threshold = list(line = list(color = "red", width = 4), value = 50)
       )
-    )
-  })
-  
-  output$stat_comparison <- renderPlotly({
-    req(input$team_a, input$team_b)
-    ratings <- get_ratings() |>
-      filter(TeamName %in% c(input$team_a, input$team_b)) |>
-      select(TeamName, AdjOE, AdjDE, AdjTempo, Luck, AdjEM)
-    
-    plot_ly(
-      ratings |> tidyr::pivot_longer(-TeamName, names_to = "Stat"),
-      x = ~Stat, y = ~value, color = ~TeamName,
-      type = "bar", barmode = "group"
     ) |>
-      layout(yaxis = list(title = "Value"), xaxis = list(title = ""))
+      layout(
+        margin  = list(l = 20, r = 20, t = 40, b = 20),
+        height  = 250
+      )
   })
   
   # ── Training ───────────────────────────────────────────────────────────────
@@ -128,13 +121,15 @@ server <- function(input, output, session) {
   
   # ── Model Evaluation ───────────────────────────────────────────────────────
   eval_metrics <- reactive({
-    meta_path <- "data/models/meta.pkl"
+    meta_path <- file.path(getwd(), "data", "models", "meta.pkl")
     req(file.exists(meta_path))
-    py  <- import("pickle")
-    con <- py$open(meta_path, "rb")
-    m   <- py$load(con)
-    con$close()
-    m
+    
+    builtins <- import_builtins()
+    pickle   <- import("pickle")
+    fh       <- builtins$open(meta_path, "rb")
+    meta     <- pickle$load(fh)
+    fh$close()
+    meta
   })
   
   output$eval_summary <- renderUI({
