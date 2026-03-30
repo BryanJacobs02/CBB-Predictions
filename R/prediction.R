@@ -3,7 +3,6 @@ py_predict <- NULL
 
 init_python_modules <- function(force_reload = FALSE) {
   if (is.null(py_train) || force_reload) {
-    # Force Python to reload the module fresh from disk
     py_run_string("import importlib, sys")
     py_run_string("
 for mod in ['train', 'predict', 'gnn_model']:
@@ -41,15 +40,22 @@ run_training <- function(seasons   = c(SEASON_YEAR - 2,
     
     setProgress(0.7, message = glue("Training GNN on {nrow(labels)} games..."))
     
+    labels_clean <- labels |>
+      select(team_a_idx, team_b_idx, winner, score_a, score_b)
+    
     py_train$train(
       node_features  = graph$node_features,
       edge_src       = graph$edge_src,
       edge_dst       = graph$edge_dst,
       edge_weights   = graph$edge_weights,
       team_names     = graph$team_names,
-      matchup_labels = labels |>
-        select(team_a_idx, team_b_idx, winner, score_a, score_b) |>
-        purrr::transpose(),
+      matchup_labels = list(
+        team_a_idx = as.integer(labels_clean$team_a_idx),
+        team_b_idx = as.integer(labels_clean$team_b_idx),
+        winner     = as.integer(labels_clean$winner),
+        score_a    = as.numeric(labels_clean$score_a),
+        score_b    = as.numeric(labels_clean$score_b)
+      ),
       recency_weights = rec_weights,
       half_life_days  = half_life
     )
@@ -79,7 +85,6 @@ predict_game <- function(team_a, team_b) {
     team_b_idx    = idx_b
   )
   
-  # Pull KenPom's own fanmatch prediction as a reference point
   kenpom_pred <- tryCatch({
     fm <- get_fanmatch() |>
       filter((Visitor == team_a & Home == team_b) |
