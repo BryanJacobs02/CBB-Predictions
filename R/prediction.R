@@ -46,7 +46,7 @@ run_training <- function(seasons   = c(SEASON_YEAR - 2,
                                     "(leak-free)..."))
     
     labels_clean <- labels |>
-      select(team_a_idx, team_b_idx, winner, score_a, score_b)
+      select(team_a_idx, team_b_idx, winner, score_a, score_b, neutral)
     
     # Parse per-game feature vectors from JSON
     feats_a <- do.call(rbind, lapply(labels$feats_a, jsonlite::fromJSON))
@@ -58,12 +58,13 @@ run_training <- function(seasons   = c(SEASON_YEAR - 2,
       edge_dst        = graph$edge_dst,
       edge_weights    = graph$edge_weights,
       team_names      = graph$team_names,
-      matchup_labels  = list(
+      matchup_labels = list(
         team_a_idx = as.integer(labels_clean$team_a_idx),
         team_b_idx = as.integer(labels_clean$team_b_idx),
         winner     = as.integer(labels_clean$winner),
         score_a    = as.numeric(labels_clean$score_a),
-        score_b    = as.numeric(labels_clean$score_b)
+        score_b    = as.numeric(labels_clean$score_b),
+        neutral    = as.integer(labels_clean$neutral)
       ),
       game_feats_a    = feats_a,
       game_feats_b    = feats_b,
