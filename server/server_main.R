@@ -81,8 +81,8 @@ server <- function(input, output, session) {
   })
   
   output$stat_comparison <- renderPlotly({
-    p <- prediction()  # ← creates reactive dependency on predict button
-    req(input$team_a, input$team_b)
+    req(prediction())
+    p          <- prediction()
     all_ratings <- get_ratings()
     
     ratings <- all_ratings |>
