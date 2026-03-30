@@ -1,5 +1,16 @@
 ui <- dashboardPage(
-  dashboardHeader(title = "LockBot 1.0"),
+  dashboardHeader(
+    title = tags$span(
+      style = "font-family: 'Barlow Condensed', sans-serif;
+             font-weight: 900;
+             font-size: 1.5rem;
+             letter-spacing: 0.12em;
+             text-transform: uppercase;
+             color: #58a6ff;",
+      "LockBot 1.0"
+    ),
+    titleWidth = 250
+  ),
   
   dashboardSidebar(
     sidebarMenu(
