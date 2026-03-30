@@ -91,7 +91,7 @@ def evaluate(gnn, pred, records, game_feats_a, game_feats_b,
 
 def train(node_features, edge_src, edge_dst, edge_weights,
           team_names, matchup_labels, game_feats_a, game_feats_b,
-          recency_weights, half_life_days=60.0, epochs=300, lr=1e-3,
+          recency_weights, half_life_days=60.0, epochs=500, lr=5e-4,
           test_fraction=0.2, save_dir=None):
 
     if save_dir is None:
@@ -138,7 +138,7 @@ def train(node_features, edge_src, edge_dst, edge_weights,
         lr=lr, weight_decay=1e-4
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
-    mse = torch.nn.MSELoss(reduction="none")
+    huber = torch.nn.HuberLoss(reduction="none", delta=10.0)
 
     for epoch in range(epochs):
         gnn.train(); pred.train()
@@ -168,8 +168,8 @@ def train(node_features, edge_src, edge_dst, edge_weights,
         scores_b = torch.tensor([float(r["score_b"]) for r in train_records])
 
         # Score loss only — weighted by recency
-        loss_sa = (mse(sa_all, scores_a) * train_weights).sum()
-        loss_sb = (mse(sb_all, scores_b) * train_weights).sum()
+        loss_sa = (huber(sa_all, scores_a) * train_weights).sum()
+        loss_sb = (huber(sb_all, scores_b) * train_weights).sum()
         total_loss = loss_sa + loss_sb
 
         total_loss.backward()

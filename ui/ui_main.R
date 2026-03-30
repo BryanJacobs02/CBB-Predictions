@@ -45,8 +45,8 @@ ui <- dashboardPage(
       # ── Train ─────────────────────────────────────────────────────────────
       tabItem("train",
               box(width = 12, title = "Model Training", status = "warning",
-                  p("Pulls 3 seasons of actual game results via hoopR and trains the GNN.
-             Expect 3–8 minutes on first run."),
+                  p("Trains the GNN on actual game results with point-in-time features.
+                      Expect 5–10 minutes (500 epochs)."),
                   fluidRow(
                     column(4,
                            sliderInput("half_life", "Recency half-life (days)",
