@@ -36,6 +36,7 @@ def _load_models(save_dir=None):
 def predict_matchup(node_features, edge_src, edge_dst, edge_weights,
                     team_a_idx, team_b_idx,
                     feat_vec_a=None, feat_vec_b=None,
+                    is_neutral=0,
                     save_dir=None):
     _load_models(save_dir)
 
@@ -65,19 +66,12 @@ def predict_matchup(node_features, edge_src, edge_dst, edge_weights,
             ea = ea + fa_proj
             eb = eb + fb_proj
 
-        x_cat = torch.cat([ea, eb], dim=-1)
-        x_cat = F.relu(_pred.fc1(x_cat))
-        x_cat = _pred.dropout(x_cat)
-        x_cat = F.relu(_pred.fc2(x_cat))
-        sa    = F.softplus(_pred.score_a(x_cat)).squeeze() + 50
-        sb    = F.softplus(_pred.score_b(x_cat)).squeeze() + 50
+        neutral = torch.tensor([[float(is_neutral)]], dtype=torch.float)
+        sa, sb  = _pred(ea, eb, neutral)
 
-    score_a = float(sa)
-    score_b = float(sb)
-    margin  = score_a - score_b
-
-    # Derive win probability from margin using logistic function
-    # ~7 point margin ≈ 73% win probability (calibrated to basketball)
+    score_a    = float(sa)
+    score_b    = float(sb)
+    margin     = score_a - score_b
     win_prob_a = float(1 / (1 + np.exp(-margin / 7.0)))
 
     return {

@@ -111,8 +111,7 @@ predict_game <- function(team_a, team_b, location = "neutral") {
   feat_vec_a <- safe_numeric(team_a_row, numeric_cols)
   feat_vec_b <- safe_numeric(team_b_row, numeric_cols)
   
-  run_pred <- function(home_idx, away_idx, home_feats, away_feats) {
-    # Convention: team_a_idx = home, team_b_idx = away
+  run_pred <- function(home_idx, away_idx, home_feats, away_feats, neutral = 0) {
     py_predict$predict_matchup(
       node_features = graph$node_features,
       edge_src      = graph$edge_src,
@@ -121,28 +120,27 @@ predict_game <- function(team_a, team_b, location = "neutral") {
       team_a_idx    = home_idx,
       team_b_idx    = away_idx,
       feat_vec_a    = home_feats,
-      feat_vec_b    = away_feats
+      feat_vec_b    = away_feats,
+      is_neutral    = neutral
     )
   }
   
   if (location == "a_home") {
-    # Team A is home
-    r <- run_pred(idx_a, idx_b, feat_vec_a, feat_vec_b)
-    wp_a    <- r$win_prob_a   # home team A win prob
+    r <- run_pred(idx_a, idx_b, feat_vec_a, feat_vec_b, neutral = 0)
+    wp_a    <- r$win_prob_a
     score_a <- r$pred_score_a
     score_b <- r$pred_score_b
     
   } else if (location == "b_home") {
-    # Team B is home
-    r <- run_pred(idx_b, idx_a, feat_vec_b, feat_vec_a)
-    wp_a    <- r$win_prob_b   # away team A win prob (flip since B was home)
-    score_a <- r$pred_score_b # flip scores back
+    r <- run_pred(idx_b, idx_a, feat_vec_b, feat_vec_a, neutral = 0)
+    wp_a    <- r$win_prob_b
+    score_a <- r$pred_score_b
     score_b <- r$pred_score_a
     
   } else {
-    # Neutral — average both directions
-    r_ab <- run_pred(idx_a, idx_b, feat_vec_a, feat_vec_b)
-    r_ba <- run_pred(idx_b, idx_a, feat_vec_b, feat_vec_a)
+    # Neutral site — average both directions
+    r_ab <- run_pred(idx_a, idx_b, feat_vec_a, feat_vec_b, neutral = 1)
+    r_ba <- run_pred(idx_b, idx_a, feat_vec_b, feat_vec_a, neutral = 1)
     wp_a    <- (r_ab$win_prob_a + r_ba$win_prob_b) / 2
     score_a <- (r_ab$pred_score_a + r_ba$pred_score_b) / 2
     score_b <- (r_ab$pred_score_b + r_ba$pred_score_a) / 2

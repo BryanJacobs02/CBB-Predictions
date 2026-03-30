@@ -34,18 +34,18 @@ def evaluate(gnn, pred, records, game_feats_a, game_feats_b,
         ea = embeddings[idx_a] + fa_proj
         eb = embeddings[idx_b] + fb_proj
 
-        x_cat  = torch.cat([ea, eb], dim=-1)
-        x_cat  = F.relu(pred.fc1(x_cat))
-        x_cat  = pred.dropout(x_cat)
-        x_cat  = F.relu(pred.fc2(x_cat))
-        pred_sa = (F.softplus(pred.score_a(x_cat)) + 50).squeeze().numpy()
-        pred_sb = (F.softplus(pred.score_b(x_cat)) + 50).squeeze().numpy()
+        neutral = torch.tensor(
+            [[float(r["neutral"])] for r in records],
+            dtype=torch.float
+        )
+        pred_sa, pred_sb = pred(ea, eb, neutral)
+        pred_sa = pred_sa.numpy()
+        pred_sb = pred_sb.numpy()
 
     actuals_sa = np.array([float(r["score_a"]) for r in records])
     actuals_sb = np.array([float(r["score_b"]) for r in records])
     actuals_wp = np.array([float(r["winner"])   for r in records])
 
-    # ── Score metrics ─────────────────────────────────────────────────────────
     mae_a  = float(np.mean(np.abs(pred_sa - actuals_sa)))
     mae_b  = float(np.mean(np.abs(pred_sb - actuals_sb)))
     mae    = (mae_a + mae_b) / 2
@@ -53,39 +53,27 @@ def evaluate(gnn, pred, records, game_feats_a, game_feats_b,
     rmse_b = float(np.sqrt(np.mean((pred_sb - actuals_sb) ** 2)))
     rmse   = (rmse_a + rmse_b) / 2
 
-    # ── Derive winner from predicted margin ───────────────────────────────────
-    # team_a = home, winner=1 means home won
-    pred_winner = (pred_sa > pred_sb).astype(int)
-    accuracy    = float(np.mean(pred_winner == actuals_wp))
-
-    # ── Margin metrics ────────────────────────────────────────────────────────
+    pred_winner   = (pred_sa > pred_sb).astype(int)
+    accuracy      = float(np.mean(pred_winner == actuals_wp))
     pred_margin   = pred_sa - pred_sb
     actual_margin = actuals_sa - actuals_sb
     mae_margin    = float(np.mean(np.abs(pred_margin - actual_margin)))
-    
-    # Correct direction: did we get the sign of the margin right?
     direction_acc = float(np.mean(
         np.sign(pred_margin) == np.sign(actual_margin)
     ))
-
-    # ── Implied win probability from margin ───────────────────────────────────
-    # Convert margin to probability using logistic function
-    # ~3 point margin ≈ 60% win probability (calibrated to basketball)
     implied_wp = 1 / (1 + np.exp(-pred_margin / 7.0))
-
-    # Brier score using implied probability
-    brier = float(np.mean((implied_wp - actuals_wp) ** 2))
+    brier      = float(np.mean((implied_wp - actuals_wp) ** 2))
 
     return {
-        "accuracy":       accuracy,
-        "direction_acc":  direction_acc,
-        "mae_points":     mae,
-        "mae_home":       mae_a,
-        "mae_away":       mae_b,
-        "rmse_points":    rmse,
-        "mae_margin":     mae_margin,
-        "brier_score":    brier,
-        "n_games":        len(records)
+        "accuracy":      accuracy,
+        "direction_acc": direction_acc,
+        "mae_points":    mae,
+        "mae_home":      mae_a,
+        "mae_away":      mae_b,
+        "rmse_points":   rmse,
+        "mae_margin":    mae_margin,
+        "brier_score":   brier,
+        "n_games":       len(records)
     }
 
 
@@ -157,12 +145,11 @@ def train(node_features, edge_src, edge_dst, edge_weights,
         ea = embeddings[idx_a] + fa_proj
         eb = embeddings[idx_b] + fb_proj
 
-        x_cat   = torch.cat([ea, eb], dim=-1)
-        x_cat_h = F.relu(pred.fc1(x_cat))
-        x_cat_h = pred.dropout(x_cat_h)
-        x_cat_h = F.relu(pred.fc2(x_cat_h))
-        sa_all  = F.softplus(pred.score_a(x_cat_h)).squeeze() + 50
-        sb_all  = F.softplus(pred.score_b(x_cat_h)).squeeze() + 50
+        neutral = torch.tensor(
+            [[float(r["neutral"])] for r in train_records],
+            dtype=torch.float
+        )
+        sa_all, sb_all = pred(ea, eb, neutral)
 
         scores_a = torch.tensor([float(r["score_a"]) for r in train_records])
         scores_b = torch.tensor([float(r["score_b"]) for r in train_records])
