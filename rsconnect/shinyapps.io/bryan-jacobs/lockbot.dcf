@@ -1,0 +1,10 @@
+name: lockbot
+title:
+username: bryan-jacobs
+account: bryan-jacobs
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 17021114
+bundleId: 11783382
+url: https://bryan-jacobs.shinyapps.io/lockbot/
+version: 1

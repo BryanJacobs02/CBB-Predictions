@@ -1,3 +1,6 @@
+library(memoise)
+library(cachem)
+
 kenpom_get <- function(endpoint, ...) {
   params <- list(endpoint = endpoint, ...)
   resp <- request(KENPOM_BASE) |>
