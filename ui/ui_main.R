@@ -72,7 +72,7 @@ ui <- dashboardPage(
       tabItem("stats",
               box(width = 12, title = "Current Team Ratings",
                   DTOutput("ratings_table"))
-      )
+      ),
       
       tabItem("eval",
               fluidRow(
