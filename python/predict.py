@@ -49,25 +49,29 @@ def predict_matchup(node_features, edge_src, edge_dst, edge_weights,
             return int(val[0])
         return int(val)
 
-    idx_a = to_int(team_a_idx)
-    idx_b = to_int(team_b_idx)
+    idx_a = to_int(team_a_idx)  # home team index
+    idx_b = to_int(team_b_idx)  # away team index
 
     with torch.no_grad():
         embeddings = _gnn(x, edge_index, edge_attr)
-        ea = embeddings[idx_a].unsqueeze(0)
-        eb = embeddings[idx_b].unsqueeze(0)
+        home_emb = embeddings[idx_a].unsqueeze(0)
+        away_emb = embeddings[idx_b].unsqueeze(0)
 
         if feat_vec_a is not None and feat_vec_b is not None:
             fa = torch.tensor(np.array(feat_vec_a, dtype=float),
                                dtype=torch.float).unsqueeze(0)
             fb = torch.tensor(np.array(feat_vec_b, dtype=float),
                                dtype=torch.float).unsqueeze(0)
-            fa_proj, fb_proj = _pred.project_feats(fa, fb)
-            ea = ea + fa_proj
-            eb = eb + fb_proj
+            feat_home_proj, feat_away_proj = _pred.project_feats(fa, fb)
+        else:
+            feat_home_proj = torch.zeros(1, _pred.embed_dim)
+            feat_away_proj = torch.zeros(1, _pred.embed_dim)
 
         neutral = torch.tensor([[float(is_neutral)]], dtype=torch.float)
-        sa, sb = _pred(ea, eb, fa_proj, fb_proj, neutral)
+
+        # sa = home score, sb = away score
+        sa, sb = _pred(home_emb, away_emb,
+                       feat_home_proj, feat_away_proj, neutral)
 
     score_a    = float(sa)
     score_b    = float(sb)
@@ -75,8 +79,8 @@ def predict_matchup(node_features, edge_src, edge_dst, edge_weights,
     win_prob_a = float(1 / (1 + np.exp(-margin / 7.0)))
 
     return {
-        "pred_score_a": score_a,
-        "pred_score_b": score_b,
+        "pred_score_a": score_a,   # home score
+        "pred_score_b": score_b,   # away score
         "margin":       margin,
         "win_prob_a":   win_prob_a,
         "win_prob_b":   1 - win_prob_a,

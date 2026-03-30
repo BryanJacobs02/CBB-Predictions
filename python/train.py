@@ -27,19 +27,20 @@ def evaluate(gnn, pred, records, game_feats_a, game_feats_b,
                               dtype=torch.long)
         idx_b = torch.tensor([int(r["team_b_idx"]) for r in records],
                               dtype=torch.long)
-        fa_proj, fb_proj = pred.project_feats(
-            torch.tensor(np.array(game_feats_a), dtype=torch.float),
-            torch.tensor(np.array(game_feats_b), dtype=torch.float)
-        )
-        ea = embeddings[idx_a] + fa_proj
-        eb = embeddings[idx_b] + fb_proj
+
+        feat_home = torch.tensor(np.array(game_feats_a), dtype=torch.float)
+        feat_away = torch.tensor(np.array(game_feats_b), dtype=torch.float)
+        feat_home_proj, feat_away_proj = pred.project_feats(feat_home, feat_away)
 
         neutral = torch.tensor(
             [[float(r["neutral"])] for r in records],
             dtype=torch.float
         )
-        pred_sa, pred_sb = pred(embeddings[idx_a], embeddings[idx_b],
-                         fa_proj, fb_proj, neutral)
+
+        pred_sa, pred_sb = pred(
+            embeddings[idx_a], embeddings[idx_b],
+            feat_home_proj, feat_away_proj, neutral
+        )
         pred_sa = pred_sa.numpy()
         pred_sb = pred_sb.numpy()
 
@@ -102,22 +103,21 @@ def train(node_features, edge_src, edge_dst, edge_weights,
 
     print(f"DEBUG: in_channels={in_channels}, feat_dim={feat_dim}")
 
-    # ── Train/test split ──────────────────────────────────────────────────────────
+    # ── Train/test split ──────────────────────────────────────────────────────
     n_total = len(records)
     n_train = int(n_total * (1 - test_fraction))
 
     if full_train:
-        # Use all data for training — deploy mode
         train_records = records
         train_fa      = fa_all
         train_fb      = fb_all
         train_weights = torch.tensor(rec_weights, dtype=torch.float)
-        test_records  = records[n_train:]  # keep for evaluation reference
+        test_records  = records[n_train:]
         test_fa       = fa_all[n_train:]
         test_fb       = fb_all[n_train:]
         print(f"FULL TRAIN mode: {len(train_records)} games | "
-          f"Benchmark test: {len(test_records)} games | "
-          f"half-life={half_life_days}d | epochs={epochs}")
+              f"Benchmark test: {len(test_records)} games | "
+              f"half-life={half_life_days}d | epochs={epochs}")
     else:
         train_records = records[:n_train]
         test_records  = records[n_train:]
@@ -137,7 +137,7 @@ def train(node_features, edge_src, edge_dst, edge_weights,
     pred = MatchupPredictor(embed_dim=32, hidden=128, feat_dim=feat_dim)
     optimizer = torch.optim.Adam(
         list(gnn.parameters()) + list(pred.parameters()),
-        lr=lr, weight_decay=1e-6  # much lower weight decay
+        lr=lr, weight_decay=1e-6
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
     mse = torch.nn.MSELoss(reduction="none")
@@ -155,22 +155,23 @@ def train(node_features, edge_src, edge_dst, edge_weights,
         idx_b = torch.tensor([int(r["team_b_idx"]) for r in train_records],
                               dtype=torch.long)
 
-        fa_proj, fb_proj = pred.project_feats(fa_t, fb_t)
-        idx_a_emb = embeddings[idx_a]
-        idx_b_emb = embeddings[idx_b]
+        feat_home_proj, feat_away_proj = pred.project_feats(fa_t, fb_t)
+        home_emb = embeddings[idx_a]
+        away_emb = embeddings[idx_b]
 
         neutral = torch.tensor(
             [[float(r["neutral"])] for r in train_records],
             dtype=torch.float
         )
-        sa_all, sb_all = pred(idx_a_emb, idx_b_emb, fa_proj, fb_proj, neutral)
 
-        scores_a = torch.tensor([float(r["score_a"]) for r in train_records])
-        scores_b = torch.tensor([float(r["score_b"]) for r in train_records])
+        sa_all, sb_all = pred(home_emb, away_emb,
+                               feat_home_proj, feat_away_proj, neutral)
 
-        # Score loss only — weighted by recency
-        loss_sa = (mse(sa_all, scores_a) * train_weights).sum()
-        loss_sb = (mse(sb_all, scores_b) * train_weights).sum()
+        scores_home = torch.tensor([float(r["score_a"]) for r in train_records])
+        scores_away = torch.tensor([float(r["score_b"]) for r in train_records])
+
+        loss_sa = (mse(sa_all, scores_home) * train_weights).sum()
+        loss_sb = (mse(sb_all, scores_away) * train_weights).sum()
         total_loss = loss_sa + loss_sb
 
         total_loss.backward()
@@ -183,8 +184,8 @@ def train(node_features, edge_src, edge_dst, edge_weights,
 
         if epoch % 50 == 0 or epoch == epochs - 1:
             print(f"  Epoch {epoch:>3d}  "
-                  f"Score A loss: {loss_sa.item():.2f}  "
-                  f"Score B loss: {loss_sb.item():.2f}  "
+                  f"Home loss: {loss_sa.item():.2f}  "
+                  f"Away loss: {loss_sb.item():.2f}  "
                   f"LR: {scheduler.get_last_lr()[0]:.5f}")
 
     # ── Evaluate ──────────────────────────────────────────────────────────────
@@ -195,31 +196,31 @@ def train(node_features, edge_src, edge_dst, edge_weights,
                               train_fa, train_fb, x, edge_index, edge_attr)
 
     print(f"\n── Test Set Results ({test_metrics['n_games']} games) ──")
-    print(f"  Winner accuracy: {test_metrics['accuracy']:.1%}  "
-          f"(derived from predicted margin)")
-    print(f"  Direction acc:   {test_metrics['direction_acc']:.1%}  "
-          f"(correct margin sign)")
+    print(f"  Winner accuracy: {test_metrics['accuracy']:.1%}")
+    print(f"  Direction acc:   {test_metrics['direction_acc']:.1%}")
     print(f"  MAE home score:  {test_metrics['mae_home']:.2f} pts")
     print(f"  MAE away score:  {test_metrics['mae_away']:.2f} pts")
     print(f"  MAE avg:         {test_metrics['mae_points']:.2f} pts")
     print(f"  RMSE avg:        {test_metrics['rmse_points']:.2f} pts")
     print(f"  MAE margin:      {test_metrics['mae_margin']:.2f} pts")
     print(f"  Brier (implied): {test_metrics['brier_score']:.4f}")
+    print(f"  Home advantage:  {pred.home_advantage.item():.2f} pts (learned)")
 
     # ── Save ──────────────────────────────────────────────────────────────────
     torch.save(gnn.state_dict(),  os.path.join(save_dir, "gnn.pt"))
     torch.save(pred.state_dict(), os.path.join(save_dir, "predictor.pt"))
     with open(os.path.join(save_dir, "meta.pkl"), "wb") as f:
         pickle.dump({
-            "team_names":    list(team_names),
-            "in_channels":   in_channels,
-            "feat_dim":      feat_dim,
-            "half_life":     half_life_days,
-            "trained_date":  datetime.today().isoformat(),
-            "test_metrics":  test_metrics,
-            "train_metrics": train_metrics,
-            "n_train":       len(train_records),
-            "n_test":        len(test_records)
+            "team_names":      list(team_names),
+            "in_channels":     in_channels,
+            "feat_dim":        feat_dim,
+            "half_life":       half_life_days,
+            "home_advantage":  pred.home_advantage.item(),
+            "trained_date":    datetime.today().isoformat(),
+            "test_metrics":    test_metrics,
+            "train_metrics":   train_metrics,
+            "n_train":         len(train_records),
+            "n_test":          len(test_records)
         }, f)
 
     print(f"\nModel saved to: {save_dir}")
