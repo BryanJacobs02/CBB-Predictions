@@ -67,7 +67,7 @@ def predict_matchup(node_features, edge_src, edge_dst, edge_weights,
             eb = eb + fb_proj
 
         neutral = torch.tensor([[float(is_neutral)]], dtype=torch.float)
-        sa, sb  = _pred(ea, eb, neutral)
+        sa, sb = _pred(ea, eb, fa_proj, fb_proj, neutral)
 
     score_a    = float(sa)
     score_b    = float(sb)

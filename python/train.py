@@ -38,7 +38,8 @@ def evaluate(gnn, pred, records, game_feats_a, game_feats_b,
             [[float(r["neutral"])] for r in records],
             dtype=torch.float
         )
-        pred_sa, pred_sb = pred(ea, eb, neutral)
+        pred_sa, pred_sb = pred(embeddings[idx_a], embeddings[idx_b],
+                         fa_proj, fb_proj, neutral)
         pred_sa = pred_sa.numpy()
         pred_sb = pred_sb.numpy()
 
@@ -155,14 +156,14 @@ def train(node_features, edge_src, edge_dst, edge_weights,
                               dtype=torch.long)
 
         fa_proj, fb_proj = pred.project_feats(fa_t, fb_t)
-        ea = embeddings[idx_a] + fa_proj
-        eb = embeddings[idx_b] + fb_proj
+        idx_a_emb = embeddings[idx_a]
+        idx_b_emb = embeddings[idx_b]
 
         neutral = torch.tensor(
             [[float(r["neutral"])] for r in train_records],
             dtype=torch.float
         )
-        sa_all, sb_all = pred(ea, eb, neutral)
+        sa_all, sb_all = pred(idx_a_emb, idx_b_emb, fa_proj, fb_proj, neutral)
 
         scores_a = torch.tensor([float(r["score_a"]) for r in train_records])
         scores_b = torch.tensor([float(r["score_b"]) for r in train_records])
