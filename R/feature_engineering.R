@@ -72,7 +72,10 @@ build_feature_matrix <- function(year = SEASON_YEAR) {
   
   df <- ratings |>
     select(TeamName, AdjEM, AdjOE, AdjDE, AdjTempo) |>
-    left_join(static, by = "TeamName")
+    distinct(TeamName, .keep_all = TRUE) |>
+    left_join(
+      static |> distinct(TeamName, .keep_all = TRUE),
+      by = "TeamName")
   
   # ── Momentum ──────────────────────────────────────────────────────────────
   today    <- Sys.Date()

@@ -6,7 +6,12 @@ build_team_graph <- function(feature_matrix, year = SEASON_YEAR) {
   
   # ── Edge set 1: same conference ─────────────────────────────────────────
   conf_edges <- teams |>
-    inner_join(teams, by = "ConfShort", suffix = c("_a", "_b")) |>
+    distinct(TeamName, ConfShort) |>
+    inner_join(
+      teams |> distinct(TeamName, ConfShort),
+      by = "ConfShort", suffix = c("_a", "_b"),
+      relationship = "many-to-many"
+    ) |>
     filter(TeamName_a != TeamName_b,
            TeamName_a %in% team_names,
            TeamName_b %in% team_names) |>
