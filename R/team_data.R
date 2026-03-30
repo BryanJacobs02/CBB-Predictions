@@ -33,7 +33,7 @@ get_team_aesthetics <- memoise::memoise(function(season = SEASON_YEAR) {
     message("Team aesthetics unavailable: ", e$message)
     tibble()
   })
-}, cache = cache)
+})
 
 get_team_logo <- function(team_name, aesthetics) {
   row <- aesthetics |> dplyr::filter(kenpom_name == team_name)

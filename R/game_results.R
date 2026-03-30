@@ -67,7 +67,7 @@ load_game_results <- memoise::memoise(function(seasons = c(SEASON_YEAR - 2,
   }) |>
     distinct(game_id, .keep_all = TRUE) |>
     arrange(game_date)
-}, cache = cache)
+})
 
 # ── Manual crosswalk ──────────────────────────────────────────────────────────
 MANUAL_CROSSWALK <- c(

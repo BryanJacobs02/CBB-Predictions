@@ -13,27 +13,27 @@ LOWER_IS_BETTER <- c(
 # ── Season-level static data fetchers (cached per season) ─────────────────────
 get_four_factors_season <- memoise::memoise(function(year) {
   kenpom_get("four-factors", y = year)
-}, cache = cache)
+})
 
 get_misc_stats_season <- memoise::memoise(function(year) {
   kenpom_get("misc-stats", y = year)
-}, cache = cache)
+})
 
 get_height_season <- memoise::memoise(function(year) {
   kenpom_get("height", y = year)
-}, cache = cache)
+})
 
 get_point_dist_season <- memoise::memoise(function(year) {
   kenpom_get("pointdist", y = year)
-}, cache = cache)
+})
 
 get_conf_ratings_season <- memoise::memoise(function(year) {
   kenpom_get("conf-ratings", y = year)
-}, cache = cache)
+})
 
 get_teams_season <- memoise::memoise(function(year) {
   kenpom_get("teams", y = year)
-}, cache = cache)
+})
 
 # ── Build static feature tibble for a specific season ─────────────────────────
 build_static_features_for_season <- function(year) {

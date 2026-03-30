@@ -22,36 +22,36 @@ kenpom_get <- function(endpoint, ...) {
 
 get_teams <- memoise::memoise(function(year = SEASON_YEAR) {
   kenpom_get("teams", y = year)
-}, cache = cache)
+})
 
 get_ratings <- memoise::memoise(function(year = SEASON_YEAR) {
   kenpom_get("ratings", y = year)
-}, cache = cache)
+})
 
 get_four_factors <- memoise::memoise(function(year = SEASON_YEAR) {
   kenpom_get("four-factors", y = year)
-}, cache = cache)
+})
 
 get_misc_stats <- memoise::memoise(function(year = SEASON_YEAR) {
   kenpom_get("misc-stats", y = year)
-}, cache = cache)
+})
 
 get_height <- memoise::memoise(function(year = SEASON_YEAR) {
   kenpom_get("height", y = year)
-}, cache = cache)
+})
 
 get_point_dist <- memoise::memoise(function(year = SEASON_YEAR) {
   kenpom_get("pointdist", y = year)
-}, cache = cache)
+})
 
 get_conf_ratings <- memoise::memoise(function(year = SEASON_YEAR) {
   kenpom_get("conf-ratings", y = year)
-}, cache = cache)
+})
 
 get_archive <- memoise::memoise(function(date) {
   kenpom_get("archive", d = date)
-}, cache = cache)
+})
 
 get_fanmatch <- memoise::memoise(function(date = as.character(Sys.Date())) {
   kenpom_get("fanmatch", d = date)
-}, cache = cache)
+})
