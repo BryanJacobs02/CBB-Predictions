@@ -2,6 +2,7 @@ py_train   <- NULL
 py_predict <- NULL
 
 init_python_modules <- function(force_reload = FALSE) {
+  if (!exists("IS_LOCAL") || !IS_LOCAL) return(invisible(NULL))
   if (is.null(py_train) || force_reload) {
     py_run_string("import importlib, sys")
     py_run_string("
