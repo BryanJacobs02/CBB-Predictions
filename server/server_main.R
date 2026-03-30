@@ -121,6 +121,9 @@ server <- function(input, output, session) {
   
   # ── Model Evaluation ───────────────────────────────────────────────────────
   eval_metrics <- reactive({
+    # Re-read after every training run
+    input$train_btn
+    
     meta_path <- file.path(getwd(), "data", "models", "meta.pkl")
     req(file.exists(meta_path))
     
