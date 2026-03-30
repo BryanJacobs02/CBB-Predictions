@@ -520,8 +520,20 @@ build_actual_training_labels <- function(graph,
     
     if (nrow(home_row) == 0 || nrow(away_row) == 0) return(tibble())
     
-    home_feats <- as.numeric(home_row |> select(all_of(numeric_cols)))
-    away_feats <- as.numeric(away_row |> select(all_of(numeric_cols)))
+    safe_numeric <- function(df_row, cols) {
+      vals <- sapply(cols, function(col) {
+        val <- df_row[[col]]
+        if (is.list(val)) return(NA_real_)
+        v <- suppressWarnings(as.numeric(val))
+        if (length(v) != 1) return(NA_real_)
+        v
+      })
+      vals[is.na(vals)] <- 0
+      vals
+    }
+    
+    home_feats <- safe_numeric(home_row, numeric_cols)
+    away_feats <- safe_numeric(away_row, numeric_cols)
     
     tibble(
       team_a_idx   = idx[row$kp_away],
