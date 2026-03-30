@@ -1,7 +1,10 @@
 if (!requireNamespace("memoise", quietly = TRUE)) install.packages("memoise", repos = "https://cloud.r-project.org")
 if (!requireNamespace("cachem",  quietly = TRUE)) install.packages("cachem",  repos = "https://cloud.r-project.org")
 
-cache <- cachem::cache_mem(max_age = 3600)
+# Define cache here so it's available when memoise calls are made
+if (!exists("cache")) {
+  cache <- cachem::cache_mem(max_age = 3600)
+}
 
 kenpom_get <- function(endpoint, ...) {
   params <- list(endpoint = endpoint, ...)
