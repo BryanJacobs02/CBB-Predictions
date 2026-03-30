@@ -17,31 +17,28 @@ class TeamGNN(torch.nn.Module):
 
 
 class MatchupPredictor(torch.nn.Module):
-    """
-    Predicts home score and away score.
-    Input: concatenated home/away embeddings + neutral site flag.
-    """
-    def __init__(self, embed_dim=32, hidden=64, feat_dim=None):
+    def __init__(self, embed_dim=32, hidden=128, feat_dim=None):
         super().__init__()
         self.embed_dim = embed_dim
-
         actual_feat_dim = feat_dim if feat_dim is not None else embed_dim
         self.feat_proj  = torch.nn.Linear(actual_feat_dim, embed_dim)
 
-        # +1 for neutral site flag
-        self.fc1     = torch.nn.Linear(embed_dim * 2 + 1, hidden)
+        # Concatenate graph emb + projected features for each team + neutral flag
+        input_dim = embed_dim * 4 + 1
+
+        self.fc1     = torch.nn.Linear(input_dim, hidden)
         self.dropout = torch.nn.Dropout(0.3)
         self.fc2     = torch.nn.Linear(hidden, hidden // 2)
-        self.score_a = torch.nn.Linear(hidden // 2, 1)  # home score
-        self.score_b = torch.nn.Linear(hidden // 2, 1)  # away score
+        self.score_a = torch.nn.Linear(hidden // 2, 1)
+        self.score_b = torch.nn.Linear(hidden // 2, 1)
 
     def project_feats(self, fa, fb):
         return self.feat_proj(fa), self.feat_proj(fb)
 
-    def forward(self, emb_a, emb_b, neutral=None):
+    def forward(self, graph_emb_a, graph_emb_b, feat_a, feat_b, neutral=None):
         if neutral is None:
-            neutral = torch.zeros(emb_a.shape[0], 1)
-        x  = torch.cat([emb_a, emb_b, neutral], dim=-1)
+            neutral = torch.zeros(graph_emb_a.shape[0], 1)
+        x  = torch.cat([graph_emb_a, feat_a, graph_emb_b, feat_b, neutral], dim=-1)
         x  = F.relu(self.fc1(x))
         x  = self.dropout(x)
         x  = F.relu(self.fc2(x))

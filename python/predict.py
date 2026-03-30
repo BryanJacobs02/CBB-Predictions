@@ -23,7 +23,7 @@ def _load_models(save_dir=None):
     with open(os.path.join(save_dir, "meta.pkl"), "rb") as f:
         _meta = pickle.load(f)
     _gnn  = TeamGNN(_meta["in_channels"])
-    _pred = MatchupPredictor(embed_dim=32, hidden=64,
+    _pred = MatchupPredictor(embed_dim=32, hidden=128,
                               feat_dim=_meta.get("feat_dim", 32))
     _gnn.load_state_dict(
         torch.load(os.path.join(save_dir, "gnn.pt"), map_location="cpu"))

@@ -133,7 +133,7 @@ def train(node_features, edge_src, edge_dst, edge_weights,
 
     # ── Models ────────────────────────────────────────────────────────────────
     gnn  = TeamGNN(in_channels)
-    pred = MatchupPredictor(embed_dim=32, hidden=64, feat_dim=feat_dim)
+    pred = MatchupPredictor(embed_dim=32, hidden=128, feat_dim=feat_dim)
     optimizer = torch.optim.Adam(
         list(gnn.parameters()) + list(pred.parameters()),
         lr=lr, weight_decay=1e-4
