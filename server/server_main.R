@@ -81,11 +81,12 @@ server <- function(input, output, session) {
   })
   
   output$stat_comparison <- renderPlotly({
+    p <- prediction()  # ← creates reactive dependency on predict button
     req(input$team_a, input$team_b)
     all_ratings <- get_ratings()
     
     ratings <- all_ratings |>
-      filter(TeamName %in% c(input$team_a, input$team_b)) |>
+      filter(TeamName %in% c(p$team_a, p$team_b)) |>
       group_by(TeamName) |>
       slice(1) |>
       ungroup() |>
