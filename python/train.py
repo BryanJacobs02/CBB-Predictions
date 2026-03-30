@@ -111,17 +111,14 @@ def train(node_features, edge_src, edge_dst, edge_weights,
 
     fa_all   = np.array(game_feats_a)
     fb_all   = np.array(game_feats_b)
+
+    # feat_dim is the raw per-game feature size — capture BEFORE any alignment
     feat_dim = fa_all.shape[1]
 
-    # Align feature dims with node features if needed
-    if fa_all.shape[1] != in_channels:
-        def align(arr, dim):
-            if arr.shape[1] < dim:
-                pad = np.zeros((arr.shape[0], dim - arr.shape[1]))
-                return np.hstack([arr, pad])
-            return arr[:, :dim]
-        fa_all = align(fa_all, in_channels)
-        fb_all = align(fb_all, in_channels)
+    # Node feature matrix and per-game features can have different dims —
+    # that is intentional. The projection layer handles the mapping.
+    # Do NOT align fa_all/fb_all to in_channels — they stay at feat_dim.
+    print(f"DEBUG: in_channels={in_channels}, feat_dim={feat_dim}")
 
     # ── Chronological train/test split ────────────────────────────────────────
     n_total = len(records)
