@@ -125,4 +125,102 @@ server <- function(input, output, session) {
       datatable(options = list(pageLength = 25, scrollX = TRUE),
                 rownames = FALSE)
   })
+  
+  # ── Model Evaluation ───────────────────────────────────────────────────────
+  eval_metrics <- reactive({
+    meta_path <- "data/models/meta.pkl"
+    req(file.exists(meta_path))
+    py  <- import("pickle")
+    con <- py$open(meta_path, "rb")
+    m   <- py$load(con)
+    con$close()
+    m
+  })
+  
+  output$eval_summary <- renderUI({
+    m  <- eval_metrics()
+    tm <- m$test_metrics
+    
+    tagList(
+      fluidRow(
+        column(3, result_card("Accuracy",
+                              scales::percent(tm$accuracy, accuracy = 0.1),
+                              subtitle = "% games predicted correctly",
+                              color = "#4CAF50")),
+        column(3, result_card("Brier Score",
+                              round(tm$brier_score, 4),
+                              subtitle = "Probability calibration (lower = better)",
+                              color = "#2196F3")),
+        column(3, result_card("Log Loss",
+                              round(tm$log_loss, 4),
+                              subtitle = "Confidence penalty (lower = better)",
+                              color = "#FF9800")),
+        column(3, result_card("Score MAE",
+                              glue("{round(tm$mae_points, 1)} pts"),
+                              subtitle = "Avg points off per team per game",
+                              color = "#9C27B0"))
+      ),
+      fluidRow(
+        column(6, p(class = "text-muted",
+                    glue("Train games: {m$n_train} | ",
+                         "Test games: {m$n_test} | ",
+                         "Trained: {m$trained_date}"))),
+      )
+    )
+  })
+  
+  output$roi_chart <- renderPlotly({
+    m   <- eval_metrics()
+    roi <- m$test_metrics$roi_by_threshold
+    
+    df <- tibble(
+      threshold = c("55%", "60%", "65%"),
+      roi       = c(roi[["0.55"]]$roi_pct,
+                    roi[["0.6"]]$roi_pct,
+                    roi[["0.65"]]$roi_pct),
+      n_bets    = c(roi[["0.55"]]$n_bets,
+                    roi[["0.6"]]$n_bets,
+                    roi[["0.65"]]$n_bets),
+      win_rate  = c(roi[["0.55"]]$win_rate,
+                    roi[["0.6"]]$win_rate,
+                    roi[["0.65"]]$win_rate)
+    )
+    
+    plot_ly(df, x = ~threshold, y = ~roi, type = "bar",
+            text = ~glue("{n_bets} bets | Win rate: {scales::percent(win_rate, 1)}"),
+            textposition = "outside",
+            marker = list(color = ifelse(df$roi >= 0, "#4CAF50", "#f44336"))) |>
+      layout(
+        yaxis = list(title = "ROI % (vs -110 line)",
+                     zeroline = TRUE, zerolinecolor = "black"),
+        xaxis = list(title = "Confidence Threshold"),
+        shapes = list(list(type = "line", y0 = 0, y1 = 0,
+                           x0 = -0.5, x1 = 2.5,
+                           line = list(color = "black", dash = "dash")))
+      )
+  })
+  
+  output$calibration_chart <- renderPlotly({
+    # Calibration chart requires raw predictions — stored in meta if available
+    # Falls back to a reference line if not available
+    m <- eval_metrics()
+    
+    # Perfect calibration reference line
+    df_ref <- tibble(x = seq(0, 1, 0.1), y = seq(0, 1, 0.1))
+    
+    plot_ly() |>
+      add_trace(data = df_ref, x = ~x, y = ~y, type = "scatter",
+                mode = "lines", name = "Perfect calibration",
+                line = list(dash = "dash", color = "gray")) |>
+      layout(
+        xaxis = list(title = "Predicted win probability",
+                     range = c(0, 1)),
+        yaxis = list(title = "Actual win rate",
+                     range = c(0, 1)),
+        annotations = list(list(
+          x = 0.5, y = 0.3, text = "Retrain model to populate calibration curve",
+          showarrow = FALSE, font = list(color = "gray")
+        ))
+      )
+  })
 }

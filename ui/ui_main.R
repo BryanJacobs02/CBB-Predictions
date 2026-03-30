@@ -5,7 +5,8 @@ ui <- dashboardPage(
     sidebarMenu(
       menuItem("Predict Matchup", tabName = "predict", icon = icon("basketball-ball")),
       menuItem("Train Model",     tabName = "train",   icon = icon("brain")),
-      menuItem("Team Stats",      tabName = "stats",   icon = icon("table"))
+      menuItem("Team Stats",      tabName = "stats",   icon = icon("table")),
+      menuItem("Model Evaluation", tabName = "eval", icon = icon("chart-line"))
     )
   ),
   
@@ -71,6 +72,20 @@ ui <- dashboardPage(
       tabItem("stats",
               box(width = 12, title = "Current Team Ratings",
                   DTOutput("ratings_table"))
+      )
+      
+      tabItem("eval",
+              fluidRow(
+                box(width = 12, title = "Model Evaluation — Held-Out Test Set",
+                    status = "info",
+                    p("Metrics computed on the most recent 20% of games, never seen during training."),
+                    uiOutput("eval_summary")
+                )
+              ),
+              fluidRow(
+                box(width = 6,  title = "ROI Simulation vs -110 Line", plotlyOutput("roi_chart")),
+                box(width = 6,  title = "Win Probability Calibration", plotlyOutput("calibration_chart"))
+              )
       )
     )
   )
