@@ -50,9 +50,9 @@ fetch_season_results <- function(season, max_retries = 3, pause_sec = 2) {
   result
 }
 
-load_game_results <- memoise(function(seasons = c(SEASON_YEAR - 2,
-                                                  SEASON_YEAR - 1,
-                                                  SEASON_YEAR)) {
+load_game_results <- memoise::memoise(function(seasons = c(SEASON_YEAR - 2,
+                                                           SEASON_YEAR - 1,
+                                                           SEASON_YEAR)) {
   current_season <- if (month(Sys.Date()) >= 11) {
     as.integer(format(Sys.Date(), "%Y")) + 1
   } else {

@@ -1,5 +1,5 @@
 # ── Team logo and color lookup ─────────────────────────────────────────────────
-get_team_aesthetics <- memoise(function(season = SEASON_YEAR) {
+get_team_aesthetics <- memoise::memoise(function(season = SEASON_YEAR) {
   tryCatch({
     raw <- hoopR::load_mbb_schedule(seasons = season) |>
       dplyr::select(
