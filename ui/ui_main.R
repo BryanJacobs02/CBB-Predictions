@@ -1,5 +1,5 @@
 ui <- dashboardPage(
-  dashboardHeader(title = "CBB Matchup Predictor"),
+  dashboardHeader(title = "LockBot 1.0"),
   
   dashboardSidebar(
     sidebarMenu(
