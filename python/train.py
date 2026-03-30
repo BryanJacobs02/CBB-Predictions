@@ -8,6 +8,11 @@ from datetime import datetime
 from gnn_model import TeamGNN, MatchupPredictor
 
 
+# Resolve save directory relative to this file's location, not working directory
+_DEFAULT_SAVE_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "models")
+)
+
 def to_records(matchup_labels):
     df = pd.DataFrame(matchup_labels)
     return df.to_dict(orient="records")
@@ -102,7 +107,9 @@ def evaluate(gnn, pred, records, game_feats_a, game_feats_b,
 def train(node_features, edge_src, edge_dst, edge_weights,
           team_names, matchup_labels, game_feats_a, game_feats_b,
           recency_weights, half_life_days=60.0, epochs=300, lr=1e-3,
-          test_fraction=0.2, save_dir="../data/models"):
+          test_fraction=0.2, save_dir=None):
+            if save_dir is None:
+              save_dir = _DEFAULT_SAVE_DIR
 
     os.makedirs(save_dir, exist_ok=True)
 

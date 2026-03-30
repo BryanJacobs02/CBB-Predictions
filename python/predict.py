@@ -4,6 +4,9 @@ import pickle
 import os
 from gnn_model import TeamGNN, MatchupPredictor
 
+_DEFAULT_SAVE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                  "..", "data", "models")
+
 _gnn  = None
 _pred = None
 _meta = None
