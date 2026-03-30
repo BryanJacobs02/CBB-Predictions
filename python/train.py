@@ -35,8 +35,12 @@ def evaluate(gnn, pred, records, game_feats_a, game_feats_b,
         idx_b = torch.tensor([int(r["team_b_idx"]) for r in records],
                               dtype=torch.long)
 
-        ea = embeddings[idx_a] + fa  # additive blend
-        eb = embeddings[idx_b] + fb
+        fa_proj, fb_proj = pred.project_feats(
+            torch.tensor(np.array(game_feats_a), dtype=torch.float),
+            torch.tensor(np.array(game_feats_b), dtype=torch.float)
+        )
+        ea = embeddings[idx_a] + fa_proj
+        eb = embeddings[idx_b] + fb_proj
 
         x_cat   = torch.cat([ea, eb], dim=-1)
         x_cat   = F.relu(pred.fc1(x_cat))
@@ -144,8 +148,9 @@ def train(node_features, edge_src, edge_dst, edge_weights,
     print("Note: using point-in-time features — no data leakage.")
 
     # ── Models ────────────────────────────────────────────────────────────────
+    feat_dim = fa_all.shape[1]
     gnn  = TeamGNN(in_channels)
-    pred = MatchupPredictor(embed_dim=in_channels)
+    pred = MatchupPredictor(embed_dim=32, hidden=64, feat_dim=feat_dim)
     optimizer = torch.optim.Adam(
         list(gnn.parameters()) + list(pred.parameters()),
         lr=lr, weight_decay=1e-4
@@ -173,8 +178,9 @@ def train(node_features, edge_src, edge_dst, edge_weights,
                               dtype=torch.long)
 
         # Blend graph embedding + point-in-time features
-        ea = embeddings[idx_a] + fa_t
-        eb = embeddings[idx_b] + fb_t
+        fa_proj, fb_proj = pred.project_feats(fa_t, fb_t)
+        ea = embeddings[idx_a] + fa_proj
+        eb = embeddings[idx_b] + fb_proj
 
         # Vectorized forward pass over all training games
         x_cat   = torch.cat([ea, eb], dim=-1)
@@ -234,6 +240,7 @@ def train(node_features, edge_src, edge_dst, edge_weights,
         pickle.dump({
             "team_names":    list(team_names),
             "in_channels":   in_channels,
+            "feat_dim":      feat_dim,
             "half_life":     half_life_days,
             "trained_date":  datetime.today().isoformat(),
             "test_metrics":  test_metrics,

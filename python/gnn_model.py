@@ -3,13 +3,9 @@ import torch.nn.functional as F
 from torch_geometric.nn import GATConv
 
 class TeamGNN(torch.nn.Module):
-    """
-    Graph Attention Network producing per-team embeddings.
-    GAT attention weights let the model learn which inter-team
-    relationships (conference rivals, common opponents) matter most.
-    """
     def __init__(self, in_channels, hidden_channels=64, out_channels=32, heads=4):
         super().__init__()
+        self.out_channels = out_channels
         self.gat1 = GATConv(in_channels, hidden_channels, heads=heads, dropout=0.3)
         self.gat2 = GATConv(hidden_channels * heads, out_channels, heads=1, dropout=0.3)
 
@@ -20,19 +16,27 @@ class TeamGNN(torch.nn.Module):
 
 
 class MatchupPredictor(torch.nn.Module):
-    """
-    Takes two team embeddings, outputs:
-    - win probability for team A
-    - predicted score for team A
-    - predicted score for team B
-    """
-    def __init__(self, embed_dim=32, hidden=64):
+    def __init__(self, embed_dim=32, hidden=64, feat_dim=None):
         super().__init__()
+        self.embed_dim = embed_dim
+
+        # Project per-game features to embed_dim if dimensions differ
+        self.feat_proj = None
+        if feat_dim is not None and feat_dim != embed_dim:
+            self.feat_proj = torch.nn.Linear(feat_dim, embed_dim)
+
         self.fc1      = torch.nn.Linear(embed_dim * 2, hidden)
         self.fc2      = torch.nn.Linear(hidden, hidden // 2)
         self.win_prob = torch.nn.Linear(hidden // 2, 1)
         self.score_a  = torch.nn.Linear(hidden // 2, 1)
         self.score_b  = torch.nn.Linear(hidden // 2, 1)
+
+    def project_feats(self, fa, fb):
+        """Project per-game features to embed_dim if needed."""
+        if self.feat_proj is not None:
+            fa = self.feat_proj(fa)
+            fb = self.feat_proj(fb)
+        return fa, fb
 
     def forward(self, emb_a, emb_b):
         x = torch.cat([emb_a, emb_b], dim=-1)
