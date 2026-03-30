@@ -19,28 +19,27 @@ def to_records(matchup_labels):
 
 
 def evaluate(gnn, pred, records, game_feats_a, game_feats_b,
-             x, edge_index, edge_attr):
+             x, edge_index, edge_attr, temperature=1.0):
     gnn.eval(); pred.eval()
 
     with torch.no_grad():
         embeddings = gnn(x, edge_index, edge_attr)
-
         idx_a = torch.tensor([int(r["team_a_idx"]) for r in records],
                               dtype=torch.long)
         idx_b = torch.tensor([int(r["team_b_idx"]) for r in records],
                               dtype=torch.long)
-
         fa_proj, fb_proj = pred.project_feats(
             torch.tensor(np.array(game_feats_a), dtype=torch.float),
             torch.tensor(np.array(game_feats_b), dtype=torch.float)
         )
         ea = embeddings[idx_a] + fa_proj
         eb = embeddings[idx_b] + fb_proj
-
         x_cat   = torch.cat([ea, eb], dim=-1)
         x_cat   = F.relu(pred.fc1(x_cat))
         x_cat   = F.relu(pred.fc2(x_cat))
-        pred_wp = torch.sigmoid(pred.win_prob(x_cat)).squeeze().numpy()
+        # Apply temperature scaling to logits before sigmoid
+        logits  = pred.win_prob(x_cat).squeeze()
+        pred_wp = torch.sigmoid(logits / temperature).numpy()
         pred_sa = (F.softplus(pred.score_a(x_cat)) + 50).squeeze().numpy()
         pred_sb = (F.softplus(pred.score_b(x_cat)) + 50).squeeze().numpy()
 
@@ -55,7 +54,6 @@ def evaluate(gnn, pred, records, game_feats_a, game_feats_b,
         actuals_wp * np.log(pred_wp + eps) +
         (1 - actuals_wp) * np.log(1 - pred_wp + eps)
     ))
-
     mae  = float((np.mean(np.abs(pred_sa - actuals_sa)) +
                   np.mean(np.abs(pred_sb - actuals_sb))) / 2)
     rmse = float((np.sqrt(np.mean((pred_sa - actuals_sa) ** 2)) +
@@ -89,6 +87,65 @@ def evaluate(gnn, pred, records, game_feats_a, game_feats_b,
         "n_games":          len(records),
         "roi_by_threshold": roi_by_threshold
     }
+
+    return {
+        "accuracy":         accuracy,
+        "brier_score":      brier,
+        "log_loss":         log_loss,
+        "mae_points":       mae,
+        "rmse_points":      rmse,
+        "n_games":          len(records),
+        "roi_by_threshold": roi_by_threshold
+    }
+    
+def learn_temperature(gnn, pred, records, game_feats_a, game_feats_b,
+                      x, edge_index, edge_attr, n_iter=100):
+    """
+    Learn a single temperature parameter T that scales logits before sigmoid.
+    Minimizes negative log likelihood on the calibration set (test set).
+    T > 1 softens probabilities toward 0.5 (less overconfident).
+    T < 1 sharpens probabilities (more extreme).
+    """
+    gnn.eval(); pred.eval()
+
+    with torch.no_grad():
+        embeddings = gnn(x, edge_index, edge_attr)
+        idx_a = torch.tensor([int(r["team_a_idx"]) for r in records],
+                              dtype=torch.long)
+        idx_b = torch.tensor([int(r["team_b_idx"]) for r in records],
+                              dtype=torch.long)
+        fa_proj, fb_proj = pred.project_feats(
+            torch.tensor(np.array(game_feats_a), dtype=torch.float),
+            torch.tensor(np.array(game_feats_b), dtype=torch.float)
+        )
+        ea = embeddings[idx_a] + fa_proj
+        eb = embeddings[idx_b] + fb_proj
+        x_cat  = torch.cat([ea, eb], dim=-1)
+        x_cat  = F.relu(pred.fc1(x_cat))
+        x_cat  = F.relu(pred.fc2(x_cat))
+        # Raw logits before sigmoid
+        logits = pred.win_prob(x_cat).squeeze()
+
+    actuals = torch.tensor([float(r["winner"]) for r in records])
+
+    # Learn temperature via gradient descent on NLL
+    temperature = torch.nn.Parameter(torch.ones(1))
+    optimizer   = torch.optim.LBFGS([temperature], lr=0.01, max_iter=n_iter)
+    nll = torch.nn.BCEWithLogitsLoss()
+
+    def eval_temp():
+        optimizer.zero_grad()
+        scaled_logits = logits / temperature
+        loss = nll(scaled_logits, actuals)
+        loss.backward()
+        return loss
+
+    optimizer.step(eval_temp)
+
+    T = float(temperature.item())
+    print(f"  Learned temperature: {T:.4f} "
+          f"({'softening' if T > 1 else 'sharpening'} probabilities)")
+    return max(T, 0.1)  # floor to avoid division by zero
 
 
 def train(node_features, edge_src, edge_dst, edge_weights,
@@ -197,11 +254,17 @@ def train(node_features, edge_src, edge_dst, edge_weights,
                   f"LR: {scheduler.get_last_lr()[0]:.5f}")
 
     # ── Evaluate ──────────────────────────────────────────────────────────────
-    print("\nEvaluating on held-out test set...")
+    print("\nLearning temperature scaling on test set...")
+    temperature = learn_temperature(gnn, pred, test_records,
+                                    test_fa, test_fb, x, edge_index, edge_attr)
+
+    print("\nEvaluating on held-out test set (temperature scaled)...")
     test_metrics  = evaluate(gnn, pred, test_records,
-                              test_fa, test_fb, x, edge_index, edge_attr)
+                              test_fa, test_fb, x, edge_index, edge_attr,
+                              temperature=temperature)
     train_metrics = evaluate(gnn, pred, train_records,
-                              train_fa, train_fb, x, edge_index, edge_attr)
+                              train_fa, train_fb, x, edge_index, edge_attr,
+                              temperature=temperature)
 
     print(f"\n── Test Set Results ({test_metrics['n_games']} games) ──")
     print(f"  Accuracy:    {test_metrics['accuracy']:.1%}")
@@ -224,6 +287,7 @@ def train(node_features, edge_src, edge_dst, edge_weights,
             "team_names":    list(team_names),
             "in_channels":   in_channels,
             "feat_dim":      feat_dim,
+            "temperature":   temperature,
             "half_life":     half_life_days,
             "trained_date":  datetime.today().isoformat(),
             "test_metrics":  test_metrics,

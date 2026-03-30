@@ -50,21 +50,29 @@ def predict_matchup(node_features, edge_src, edge_dst, edge_weights,
     idx_b = to_int(team_b_idx)
 
     with torch.no_grad():
-        embeddings = _gnn(x, edge_index, edge_attr)
-        ea = embeddings[idx_a].unsqueeze(0)
-        eb = embeddings[idx_b].unsqueeze(0)
+    embeddings = _gnn(x, edge_index, edge_attr)
+    ea = embeddings[idx_a].unsqueeze(0)
+    eb = embeddings[idx_b].unsqueeze(0)
 
-        # Blend with current feature vectors if provided
-        if feat_vec_a is not None and feat_vec_b is not None:
-            fa = torch.tensor(np.array(feat_vec_a, dtype=float),
-                               dtype=torch.float).unsqueeze(0)
-            fb = torch.tensor(np.array(feat_vec_b, dtype=float),
-                               dtype=torch.float).unsqueeze(0)
-            fa_proj, fb_proj = _pred.project_feats(fa, fb)
-            ea = ea + fa_proj
-            eb = eb + fb_proj
+    if feat_vec_a is not None and feat_vec_b is not None:
+        fa = torch.tensor(np.array(feat_vec_a, dtype=float),
+                           dtype=torch.float).unsqueeze(0)
+        fb = torch.tensor(np.array(feat_vec_b, dtype=float),
+                           dtype=torch.float).unsqueeze(0)
+        fa_proj, fb_proj = _pred.project_feats(fa, fb)
+        ea = ea + fa_proj
+        eb = eb + fb_proj
 
-        wp, sa, sb = _pred(ea, eb)
+    x_cat  = torch.cat([ea, eb], dim=-1)
+    x_cat  = F.relu(_pred.fc1(x_cat))
+    x_cat  = F.relu(_pred.fc2(x_cat))
+
+    # Apply temperature scaling
+    T      = _meta.get("temperature", 1.0)
+    logits = _pred.win_prob(x_cat).squeeze()
+    wp     = torch.sigmoid(logits / T)
+    sa     = F.softplus(_pred.score_a(x_cat)).squeeze() + 50
+    sb     = F.softplus(_pred.score_b(x_cat)).squeeze() + 50
 
     return {
         "win_prob_a":   float(wp),
