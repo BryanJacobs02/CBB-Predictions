@@ -31,6 +31,13 @@ class MatchupPredictor(torch.nn.Module):
         self.fc2     = torch.nn.Linear(hidden, hidden // 2)
         self.score_a = torch.nn.Linear(hidden // 2, 1)
         self.score_b = torch.nn.Linear(hidden // 2, 1)
+        
+        # Initialize weights with larger values to prevent collapse
+        torch.nn.init.xavier_uniform_(self.fc1.weight, gain=1.4)
+        torch.nn.init.xavier_uniform_(self.fc2.weight, gain=1.4)
+        torch.nn.init.xavier_uniform_(self.score_a.weight, gain=1.4)
+        torch.nn.init.xavier_uniform_(self.score_b.weight, gain=1.4)
+        torch.nn.init.xavier_uniform_(self.feat_proj.weight, gain=1.4)
 
     def project_feats(self, fa, fb):
         return self.feat_proj(fa), self.feat_proj(fb)

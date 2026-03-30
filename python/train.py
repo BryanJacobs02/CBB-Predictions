@@ -137,10 +137,10 @@ def train(node_features, edge_src, edge_dst, edge_weights,
     pred = MatchupPredictor(embed_dim=32, hidden=128, feat_dim=feat_dim)
     optimizer = torch.optim.Adam(
         list(gnn.parameters()) + list(pred.parameters()),
-        lr=lr, weight_decay=1e-4
+        lr=lr, weight_decay=1e-6  # much lower weight decay
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
-    huber = torch.nn.HuberLoss(reduction="none", delta=10.0)
+    mse = torch.nn.MSELoss(reduction="none")
 
     for epoch in range(epochs):
         gnn.train(); pred.train()
@@ -169,8 +169,8 @@ def train(node_features, edge_src, edge_dst, edge_weights,
         scores_b = torch.tensor([float(r["score_b"]) for r in train_records])
 
         # Score loss only — weighted by recency
-        loss_sa = (huber(sa_all, scores_a) * train_weights).sum()
-        loss_sb = (huber(sb_all, scores_b) * train_weights).sum()
+        loss_sa = (mse(sa_all, scores_a) * train_weights).sum()
+        loss_sb = (mse(sb_all, scores_b) * train_weights).sum()
         total_loss = loss_sa + loss_sb
 
         total_loss.backward()
