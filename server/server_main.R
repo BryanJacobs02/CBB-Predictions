@@ -82,7 +82,8 @@ server <- function(input, output, session) {
   
   output$stat_comparison <- renderPlotly({
     req(prediction())
-    p           <- prediction()
+    p <- prediction()
+    
     all_ratings <- get_ratings() |>
       group_by(TeamName) |>
       slice(1) |>
@@ -94,26 +95,31 @@ server <- function(input, output, session) {
     if (nrow(ratings) < 2) return(plot_ly() |>
                                     layout(title = "Team data not found"))
     
-    numeric_cols <- c("AdjOE", "AdjDE", "AdjTempo", "AdjEM")
+    # Compute percentiles manually — no cur_column() confusion
+    pct <- function(team_val, all_vals, higher_is_better = TRUE) {
+      if (!higher_is_better) {
+        team_val <- -team_val
+        all_vals <- -all_vals
+      }
+      round(100 * sum(all_vals <= team_val, na.rm = TRUE) / length(all_vals))
+    }
     
-    ratings_pct <- ratings |>
-      select(TeamName, all_of(numeric_cols)) |>
-      mutate(AdjDE = -AdjDE) |>
-      mutate(across(all_of(numeric_cols), function(col_val) {
-        all_vals <- all_ratings[[cur_column()]]
-        if (cur_column() == "AdjDE") all_vals <- -all_vals
-        round(100 * rank(col_val, ties.method = "average") /
-                length(all_vals))
-      })) |>
-      rename(
-        `Off. Efficiency` = AdjOE,
-        `Def. Efficiency` = AdjDE,
-        `Tempo`           = AdjTempo,
-        `Overall (AdjEM)` = AdjEM
+    rows <- list()
+    for (tn in c(p$team_a, p$team_b)) {
+      r <- ratings |> filter(TeamName == tn)
+      rows[[tn]] <- tibble(
+        TeamName = tn,
+        Stat     = c("Off. Efficiency", "Def. Efficiency", "Tempo", "Overall (AdjEM)"),
+        value    = c(
+          pct(r$AdjOE,  all_ratings$AdjOE,  TRUE),
+          pct(r$AdjDE,  all_ratings$AdjDE,  FALSE),  # lower AdjDE = better defense
+          pct(r$AdjTempo, all_ratings$AdjTempo, TRUE),
+          pct(r$AdjEM,  all_ratings$AdjEM,  TRUE)
+        )
       )
+    }
     
-    stats_long <- ratings_pct |>
-      tidyr::pivot_longer(-TeamName, names_to = "Stat")
+    stats_long <- bind_rows(rows)
     
     plot_ly(stats_long, x = ~Stat, y = ~value, color = ~TeamName,
             type = "bar",
