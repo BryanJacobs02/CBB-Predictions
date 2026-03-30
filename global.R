@@ -28,12 +28,7 @@ SEASON_YEAR  <- if (month(Sys.Date()) >= 11) CURRENT_YEAR + 1 else CURRENT_YEAR
 # Only initialize Python if running locally (not on shinyapps.io)
 IS_LOCAL <- file.exists(".venv")
 
-if (IS_LOCAL) {
-  library(reticulate)
-  use_virtualenv(file.path(getwd(), ".venv"), required = TRUE)
-} else {
-  message("No .venv found — running in deployed mode (cache only)")
-}
+source("R/prediction.R")
 
 # ── Cache (1-hour TTL) ────────────────────────────────────────────────────────
 cache <- cache_mem(max_age = 3600)
