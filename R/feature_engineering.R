@@ -50,6 +50,11 @@ build_feature_matrix <- function(year = SEASON_YEAR) {
   
   df <- df |> left_join(momentum, by = "TeamName")
   
+  # Drop columns not available in archive snapshots to maintain
+  # consistent feature dimensions between training and live prediction
+  archive_unavailable <- c("SOS", "NCSOS", "Pythag", "APL_Off", "APL_Def", "Luck")
+  df <- df |> select(-any_of(archive_unavailable))
+  
   # ── Normalize ─────────────────────────────────────────────────────────────
   numeric_cols <- df |> select(where(is.numeric)) |> names()
   df <- df |>

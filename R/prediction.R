@@ -87,13 +87,27 @@ predict_game <- function(team_a, team_b) {
   if (length(idx_a) == 0 || length(idx_b) == 0)
     stop(glue("Team not found: '{team_a}' or '{team_b}'"))
   
+  # Extract current feature vectors for both teams
+  numeric_cols <- feats |> select(where(is.numeric)) |> names()
+  
+  team_a_row <- feats |> filter(TeamName == team_a)
+  team_b_row <- feats |> filter(TeamName == team_b)
+  
+  if (nrow(team_a_row) == 0 || nrow(team_b_row) == 0)
+    stop(glue("Team features not found for '{team_a}' or '{team_b}'"))
+  
+  feat_vec_a <- as.numeric(team_a_row |> select(all_of(numeric_cols)))
+  feat_vec_b <- as.numeric(team_b_row |> select(all_of(numeric_cols)))
+  
   result <- py_predict$predict_matchup(
     node_features = graph$node_features,
     edge_src      = graph$edge_src,
     edge_dst      = graph$edge_dst,
     edge_weights  = graph$edge_weights,
     team_a_idx    = idx_a,
-    team_b_idx    = idx_b
+    team_b_idx    = idx_b,
+    feat_vec_a    = feat_vec_a,
+    feat_vec_b    = feat_vec_b
   )
   
   kenpom_pred <- tryCatch({

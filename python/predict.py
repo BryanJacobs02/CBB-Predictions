@@ -30,15 +30,17 @@ def _load_models(save_dir=None):
     _gnn.eval()
     _pred.eval()
 
+
 def predict_matchup(node_features, edge_src, edge_dst, edge_weights,
-                    team_a_idx, team_b_idx, save_dir=None):
+                    team_a_idx, team_b_idx,
+                    feat_vec_a=None, feat_vec_b=None,
+                    save_dir=None):
     _load_models(save_dir)
 
     x          = torch.tensor(np.array(node_features), dtype=torch.float)
     edge_index = torch.tensor([list(edge_src), list(edge_dst)], dtype=torch.long)
     edge_attr  = torch.tensor(list(edge_weights), dtype=torch.float)
 
-    # Safely extract scalar index from whatever reticulate sends
     def to_int(val):
         if isinstance(val, (list, tuple)):
             return int(val[0])
@@ -51,6 +53,17 @@ def predict_matchup(node_features, edge_src, edge_dst, edge_weights,
         embeddings = _gnn(x, edge_index, edge_attr)
         ea = embeddings[idx_a].unsqueeze(0)
         eb = embeddings[idx_b].unsqueeze(0)
+
+        # Blend with current feature vectors if provided
+        if feat_vec_a is not None and feat_vec_b is not None:
+            fa = torch.tensor(np.array(feat_vec_a, dtype=float),
+                               dtype=torch.float).unsqueeze(0)
+            fb = torch.tensor(np.array(feat_vec_b, dtype=float),
+                               dtype=torch.float).unsqueeze(0)
+            fa_proj, fb_proj = _pred.project_feats(fa, fb)
+            ea = ea + fa_proj
+            eb = eb + fb_proj
+
         wp, sa, sb = _pred(ea, eb)
 
     return {
