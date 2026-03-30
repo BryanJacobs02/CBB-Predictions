@@ -3,7 +3,7 @@ ui <- dashboardPage(
     title = tags$span(
       style = "font-family: 'Barlow Condensed', sans-serif;
              font-weight: 900;
-             font-size: 1.5rem;
+             font-size: 3rem;
              letter-spacing: 0.12em;
              text-transform: uppercase;
              color: #58a6ff;",
