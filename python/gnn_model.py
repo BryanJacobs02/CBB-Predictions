@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch_geometric.nn import GATConv
 
+
 class TeamGNN(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels=64, out_channels=32, heads=4):
         super().__init__()
@@ -12,35 +13,35 @@ class TeamGNN(torch.nn.Module):
     def forward(self, x, edge_index, edge_attr=None):
         x = F.elu(self.gat1(x, edge_index))
         x = self.gat2(x, edge_index)
-        return x  # [num_teams, out_channels=32]
+        return x  # [num_teams, out_channels]
 
 
 class MatchupPredictor(torch.nn.Module):
+    """
+    Predicts home score and away score directly.
+    Winner and win probability are derived from the score margin.
+    """
     def __init__(self, embed_dim=32, hidden=64, feat_dim=None):
         super().__init__()
         self.embed_dim = embed_dim
 
-        # Project per-game features to embed_dim
         actual_feat_dim = feat_dim if feat_dim is not None else embed_dim
-        self.feat_proj = torch.nn.Linear(actual_feat_dim, embed_dim)
+        self.feat_proj  = torch.nn.Linear(actual_feat_dim, embed_dim)
 
-        # After blending: each team vector is embed_dim, concat = embed_dim * 2
-        self.fc1      = torch.nn.Linear(embed_dim * 2, hidden)
-        self.fc2      = torch.nn.Linear(hidden, hidden // 2)
-        self.win_prob = torch.nn.Linear(hidden // 2, 1)
-        self.score_a  = torch.nn.Linear(hidden // 2, 1)
-        self.score_b  = torch.nn.Linear(hidden // 2, 1)
+        self.fc1     = torch.nn.Linear(embed_dim * 2, hidden)
+        self.dropout = torch.nn.Dropout(0.3)
+        self.fc2     = torch.nn.Linear(hidden, hidden // 2)
+        self.score_a = torch.nn.Linear(hidden // 2, 1)  # home score
+        self.score_b = torch.nn.Linear(hidden // 2, 1)  # away score
 
     def project_feats(self, fa, fb):
-        """Always project features to embed_dim."""
         return self.feat_proj(fa), self.feat_proj(fb)
 
     def forward(self, emb_a, emb_b):
-        x = torch.cat([emb_a, emb_b], dim=-1)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        return (
-            torch.sigmoid(self.win_prob(x)).squeeze(),
-            F.softplus(self.score_a(x)).squeeze() + 50,
-            F.softplus(self.score_b(x)).squeeze() + 50,
-        )
+        x  = torch.cat([emb_a, emb_b], dim=-1)
+        x  = F.relu(self.fc1(x))
+        x  = self.dropout(x)
+        x  = F.relu(self.fc2(x))
+        sa = F.softplus(self.score_a(x)).squeeze() + 50
+        sb = F.softplus(self.score_b(x)).squeeze() + 50
+        return sa, sb

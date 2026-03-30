@@ -7,7 +7,6 @@ import pandas as pd
 from datetime import datetime
 from gnn_model import TeamGNN, MatchupPredictor
 
-# Resolve save directory relative to this file's location, not working directory
 _DEFAULT_SAVE_DIR = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "models")
 )
@@ -19,7 +18,7 @@ def to_records(matchup_labels):
 
 
 def evaluate(gnn, pred, records, game_feats_a, game_feats_b,
-             x, edge_index, edge_attr, temperature=1.0):
+             x, edge_index, edge_attr):
     gnn.eval(); pred.eval()
 
     with torch.no_grad():
@@ -34,118 +33,60 @@ def evaluate(gnn, pred, records, game_feats_a, game_feats_b,
         )
         ea = embeddings[idx_a] + fa_proj
         eb = embeddings[idx_b] + fb_proj
-        x_cat   = torch.cat([ea, eb], dim=-1)
-        x_cat   = F.relu(pred.fc1(x_cat))
-        x_cat   = F.relu(pred.fc2(x_cat))
-        # Apply temperature scaling to logits before sigmoid
-        logits  = pred.win_prob(x_cat).squeeze()
-        pred_wp = torch.sigmoid(logits / temperature).numpy()
+
+        x_cat  = torch.cat([ea, eb], dim=-1)
+        x_cat  = F.relu(pred.fc1(x_cat))
+        x_cat  = pred.dropout(x_cat)
+        x_cat  = F.relu(pred.fc2(x_cat))
         pred_sa = (F.softplus(pred.score_a(x_cat)) + 50).squeeze().numpy()
         pred_sb = (F.softplus(pred.score_b(x_cat)) + 50).squeeze().numpy()
 
-    actuals_wp = np.array([float(r["winner"])  for r in records])
     actuals_sa = np.array([float(r["score_a"]) for r in records])
     actuals_sb = np.array([float(r["score_b"]) for r in records])
+    actuals_wp = np.array([float(r["winner"])   for r in records])
 
-    accuracy = float(np.mean((pred_wp >= 0.5).astype(int) == actuals_wp))
-    brier    = float(np.mean((pred_wp - actuals_wp) ** 2))
-    eps      = 1e-7
-    log_loss = float(-np.mean(
-        actuals_wp * np.log(pred_wp + eps) +
-        (1 - actuals_wp) * np.log(1 - pred_wp + eps)
-    ))
-    mae  = float((np.mean(np.abs(pred_sa - actuals_sa)) +
-                  np.mean(np.abs(pred_sb - actuals_sb))) / 2)
-    rmse = float((np.sqrt(np.mean((pred_sa - actuals_sa) ** 2)) +
-                  np.sqrt(np.mean((pred_sb - actuals_sb) ** 2))) / 2)
+    # ── Score metrics ─────────────────────────────────────────────────────────
+    mae_a  = float(np.mean(np.abs(pred_sa - actuals_sa)))
+    mae_b  = float(np.mean(np.abs(pred_sb - actuals_sb)))
+    mae    = (mae_a + mae_b) / 2
+    rmse_a = float(np.sqrt(np.mean((pred_sa - actuals_sa) ** 2)))
+    rmse_b = float(np.sqrt(np.mean((pred_sb - actuals_sb) ** 2)))
+    rmse   = (rmse_a + rmse_b) / 2
 
-    roi_by_threshold = {}
-    for threshold in [0.55, 0.60, 0.65]:
-        bets_a = pred_wp >= threshold
-        bets_b = (1 - pred_wp) >= threshold
-        returns = []
-        for j in range(len(pred_wp)):
-            if bets_a[j]:
-                returns.append(100/110 if actuals_wp[j] == 1 else -1.0)
-            elif bets_b[j]:
-                returns.append(100/110 if actuals_wp[j] == 0 else -1.0)
-        n_bets   = len(returns)
-        roi      = float(np.mean(returns)) * 100 if n_bets > 0 else 0.0
-        win_rate = float(np.mean([r > 0 for r in returns])) if n_bets > 0 else 0.0
-        roi_by_threshold[str(threshold)] = {
-            "n_bets":   n_bets,
-            "win_rate": win_rate,
-            "roi_pct":  roi
-        }
+    # ── Derive winner from predicted margin ───────────────────────────────────
+    # team_a = home, winner=1 means home won
+    pred_winner = (pred_sa > pred_sb).astype(int)
+    accuracy    = float(np.mean(pred_winner == actuals_wp))
 
-    return {
-        "accuracy":         accuracy,
-        "brier_score":      brier,
-        "log_loss":         log_loss,
-        "mae_points":       mae,
-        "rmse_points":      rmse,
-        "n_games":          len(records),
-        "roi_by_threshold": roi_by_threshold
-    }
-
-    return {
-        "accuracy":         accuracy,
-        "brier_score":      brier,
-        "log_loss":         log_loss,
-        "mae_points":       mae,
-        "rmse_points":      rmse,
-        "n_games":          len(records),
-        "roi_by_threshold": roi_by_threshold
-    }
+    # ── Margin metrics ────────────────────────────────────────────────────────
+    pred_margin   = pred_sa - pred_sb
+    actual_margin = actuals_sa - actuals_sb
+    mae_margin    = float(np.mean(np.abs(pred_margin - actual_margin)))
     
-def learn_temperature(gnn, pred, records, game_feats_a, game_feats_b,
-                      x, edge_index, edge_attr, n_iter=100):
-    """
-    Learn a single temperature parameter T that scales logits before sigmoid.
-    Minimizes negative log likelihood on the calibration set (test set).
-    T > 1 softens probabilities toward 0.5 (less overconfident).
-    T < 1 sharpens probabilities (more extreme).
-    """
-    gnn.eval(); pred.eval()
+    # Correct direction: did we get the sign of the margin right?
+    direction_acc = float(np.mean(
+        np.sign(pred_margin) == np.sign(actual_margin)
+    ))
 
-    with torch.no_grad():
-        embeddings = gnn(x, edge_index, edge_attr)
-        idx_a = torch.tensor([int(r["team_a_idx"]) for r in records],
-                              dtype=torch.long)
-        idx_b = torch.tensor([int(r["team_b_idx"]) for r in records],
-                              dtype=torch.long)
-        fa_proj, fb_proj = pred.project_feats(
-            torch.tensor(np.array(game_feats_a), dtype=torch.float),
-            torch.tensor(np.array(game_feats_b), dtype=torch.float)
-        )
-        ea = embeddings[idx_a] + fa_proj
-        eb = embeddings[idx_b] + fb_proj
-        x_cat  = torch.cat([ea, eb], dim=-1)
-        x_cat  = F.relu(pred.fc1(x_cat))
-        x_cat  = F.relu(pred.fc2(x_cat))
-        # Raw logits before sigmoid
-        logits = pred.win_prob(x_cat).squeeze()
+    # ── Implied win probability from margin ───────────────────────────────────
+    # Convert margin to probability using logistic function
+    # ~3 point margin ≈ 60% win probability (calibrated to basketball)
+    implied_wp = 1 / (1 + np.exp(-pred_margin / 7.0))
 
-    actuals = torch.tensor([float(r["winner"]) for r in records])
+    # Brier score using implied probability
+    brier = float(np.mean((implied_wp - actuals_wp) ** 2))
 
-    # Learn temperature via gradient descent on NLL
-    temperature = torch.nn.Parameter(torch.ones(1))
-    optimizer   = torch.optim.LBFGS([temperature], lr=0.01, max_iter=n_iter)
-    nll = torch.nn.BCEWithLogitsLoss()
-
-    def eval_temp():
-        optimizer.zero_grad()
-        scaled_logits = logits / temperature
-        loss = nll(scaled_logits, actuals)
-        loss.backward()
-        return loss
-
-    optimizer.step(eval_temp)
-
-    T = float(temperature.item())
-    print(f"  Learned temperature: {T:.4f} "
-          f"({'softening' if T > 1 else 'sharpening'} probabilities)")
-    return max(T, 0.1)  # floor to avoid division by zero
+    return {
+        "accuracy":       accuracy,
+        "direction_acc":  direction_acc,
+        "mae_points":     mae,
+        "mae_home":       mae_a,
+        "mae_away":       mae_b,
+        "rmse_points":    rmse,
+        "mae_margin":     mae_margin,
+        "brier_score":    brier,
+        "n_games":        len(records)
+    }
 
 
 def train(node_features, edge_src, edge_dst, edge_weights,
@@ -168,13 +109,8 @@ def train(node_features, edge_src, edge_dst, edge_weights,
 
     fa_all   = np.array(game_feats_a)
     fb_all   = np.array(game_feats_b)
-
-    # feat_dim is the raw per-game feature size — capture BEFORE any alignment
     feat_dim = fa_all.shape[1]
 
-    # Node feature matrix and per-game features can have different dims —
-    # that is intentional. The projection layer handles the mapping.
-    # Do NOT align fa_all/fb_all to in_channels — they stay at feat_dim.
     print(f"DEBUG: in_channels={in_channels}, feat_dim={feat_dim}")
 
     # ── Chronological train/test split ────────────────────────────────────────
@@ -202,8 +138,6 @@ def train(node_features, edge_src, edge_dst, edge_weights,
         lr=lr, weight_decay=1e-4
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
-
-    bce = torch.nn.BCELoss(reduction="none")
     mse = torch.nn.MSELoss(reduction="none")
 
     for epoch in range(epochs):
@@ -225,20 +159,19 @@ def train(node_features, edge_src, edge_dst, edge_weights,
 
         x_cat   = torch.cat([ea, eb], dim=-1)
         x_cat_h = F.relu(pred.fc1(x_cat))
+        x_cat_h = pred.dropout(x_cat_h)
         x_cat_h = F.relu(pred.fc2(x_cat_h))
-        wp_all  = torch.sigmoid(pred.win_prob(x_cat_h)).squeeze()
         sa_all  = F.softplus(pred.score_a(x_cat_h)).squeeze() + 50
         sb_all  = F.softplus(pred.score_b(x_cat_h)).squeeze() + 50
 
-        winners  = torch.tensor([float(r["winner"])  for r in train_records])
         scores_a = torch.tensor([float(r["score_a"]) for r in train_records])
         scores_b = torch.tensor([float(r["score_b"]) for r in train_records])
 
-        loss_wp = (bce(wp_all, winners) * train_weights).sum()
-        loss_sc = ((mse(sa_all, scores_a) +
-                    mse(sb_all, scores_b)) * train_weights * 0.005).sum()
+        # Score loss only — weighted by recency
+        loss_sa = (mse(sa_all, scores_a) * train_weights).sum()
+        loss_sb = (mse(sb_all, scores_b) * train_weights).sum()
+        total_loss = loss_sa + loss_sb
 
-        total_loss = loss_wp + loss_sc
         total_loss.backward()
 
         torch.nn.utils.clip_grad_norm_(
@@ -249,35 +182,28 @@ def train(node_features, edge_src, edge_dst, edge_weights,
 
         if epoch % 50 == 0 or epoch == epochs - 1:
             print(f"  Epoch {epoch:>3d}  "
-                  f"WP loss: {loss_wp.item():.4f}  "
-                  f"Score loss: {loss_sc.item():.4f}  "
+                  f"Score A loss: {loss_sa.item():.2f}  "
+                  f"Score B loss: {loss_sb.item():.2f}  "
                   f"LR: {scheduler.get_last_lr()[0]:.5f}")
 
     # ── Evaluate ──────────────────────────────────────────────────────────────
-    print("\nLearning temperature scaling on test set...")
-    temperature = learn_temperature(gnn, pred, test_records,
-                                    test_fa, test_fb, x, edge_index, edge_attr)
-
-    print("\nEvaluating on held-out test set (temperature scaled)...")
+    print("\nEvaluating on held-out test set...")
     test_metrics  = evaluate(gnn, pred, test_records,
-                              test_fa, test_fb, x, edge_index, edge_attr,
-                              temperature=temperature)
+                              test_fa, test_fb, x, edge_index, edge_attr)
     train_metrics = evaluate(gnn, pred, train_records,
-                              train_fa, train_fb, x, edge_index, edge_attr,
-                              temperature=temperature)
+                              train_fa, train_fb, x, edge_index, edge_attr)
 
     print(f"\n── Test Set Results ({test_metrics['n_games']} games) ──")
-    print(f"  Accuracy:    {test_metrics['accuracy']:.1%}")
-    print(f"  Brier Score: {test_metrics['brier_score']:.4f}")
-    print(f"  Log Loss:    {test_metrics['log_loss']:.4f}")
-    print(f"  MAE Points:  {test_metrics['mae_points']:.2f} pts")
-    print(f"  RMSE Points: {test_metrics['rmse_points']:.2f} pts")
-    print(f"\n── ROI Simulation (vs -110 line) ──")
-    for thresh, roi in test_metrics["roi_by_threshold"].items():
-        print(f"  {float(thresh):.0%} threshold: "
-              f"{roi['n_bets']} bets | "
-              f"Win rate: {roi['win_rate']:.1%} | "
-              f"ROI: {roi['roi_pct']:+.2f}%")
+    print(f"  Winner accuracy: {test_metrics['accuracy']:.1%}  "
+          f"(derived from predicted margin)")
+    print(f"  Direction acc:   {test_metrics['direction_acc']:.1%}  "
+          f"(correct margin sign)")
+    print(f"  MAE home score:  {test_metrics['mae_home']:.2f} pts")
+    print(f"  MAE away score:  {test_metrics['mae_away']:.2f} pts")
+    print(f"  MAE avg:         {test_metrics['mae_points']:.2f} pts")
+    print(f"  RMSE avg:        {test_metrics['rmse_points']:.2f} pts")
+    print(f"  MAE margin:      {test_metrics['mae_margin']:.2f} pts")
+    print(f"  Brier (implied): {test_metrics['brier_score']:.4f}")
 
     # ── Save ──────────────────────────────────────────────────────────────────
     torch.save(gnn.state_dict(),  os.path.join(save_dir, "gnn.pt"))
@@ -287,7 +213,6 @@ def train(node_features, edge_src, edge_dst, edge_weights,
             "team_names":    list(team_names),
             "in_channels":   in_channels,
             "feat_dim":      feat_dim,
-            "temperature":   temperature,
             "half_life":     half_life_days,
             "trained_date":  datetime.today().isoformat(),
             "test_metrics":  test_metrics,

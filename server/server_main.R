@@ -25,14 +25,18 @@ server <- function(input, output, session) {
     g      <- p$gnn
     team_a <- p$team_a
     team_b <- p$team_b
-    winner <- if (g$win_prob_a > 0.5) team_a else team_b
-    conf   <- max(g$win_prob_a, g$win_prob_b)
+    winner <- if (g$pred_score_a > g$pred_score_b) team_a else team_b
+    loser  <- if (winner == team_a) team_b else team_a
+    margin <- abs(g$pred_score_a - g$pred_score_b)
+    wp     <- if (winner == team_a) g$win_prob_a else g$win_prob_b
     
     tagList(
       fluidRow(
         column(6, result_card("Predicted Winner", winner, color = "#4CAF50")),
-        column(6, result_card("Confidence", scales::percent(conf, accuracy = 1),
-                              subtitle = "GNN win probability", color = "#FF9800"))
+        column(6, result_card("Predicted Margin",
+                              glue("+{round(margin, 1)} pts"),
+                              subtitle = glue("in favor of {winner}"),
+                              color = "#FF9800"))
       ),
       fluidRow(
         column(6, result_card(glue("{team_a} Score"),
@@ -40,13 +44,21 @@ server <- function(input, output, session) {
         column(6, result_card(glue("{team_b} Score"),
                               round(g$pred_score_b, 1), color = "#9C27B0"))
       ),
+      fluidRow(
+        column(12,
+               div(class = "alert alert-info", style = "margin-top: 12px;",
+                   icon("info-circle"), strong(" Implied win probability: "),
+                   glue("{scales::percent(wp, accuracy=1)} for {winner} ",
+                        "(derived from {round(margin,1)}-point margin)")
+               )
+        )
+      ),
       if (!is.null(p$kenpom)) {
         km <- p$kenpom
-        div(class = "alert alert-info", style = "margin-top: 12px;",
+        div(class = "alert alert-secondary", style = "margin-top: 8px;",
             icon("chart-line"), strong(" KenPom reference: "),
             glue("{km$Home} {round(km$HomePred, 1)} – ",
-                 "{km$Visitor} {round(km$VisitorPred, 1)} ",
-                 "(KenPom HomeWP: {scales::percent(km$HomeWP, accuracy=1)})")
+                 "{km$Visitor} {round(km$VisitorPred, 1)}")
         )
       }
     )
@@ -59,12 +71,11 @@ server <- function(input, output, session) {
       type  = "indicator",
       mode  = "gauge+number",
       value = round(g$win_prob_a * 100, 1),
-      title = list(text = glue("{p$team_a} Win Prob (%)"),
-                   font = list(size = 12)),
+      title = list(text = glue("{p$team_a} Win Prob (%) — derived from margin"),
+                   font = list(size = 11)),
       number = list(font = list(size = 24)),
       gauge = list(
-        axis  = list(range = list(0, 100),
-                     tickfont = list(size = 10)),
+        axis  = list(range = list(0, 100), tickfont = list(size = 10)),
         bar   = list(color = "#4CAF50"),
         steps = list(
           list(range = c(0,  40), color = "#ffcdd2"),
@@ -74,10 +85,7 @@ server <- function(input, output, session) {
         threshold = list(line = list(color = "red", width = 4), value = 50)
       )
     ) |>
-      layout(
-        margin  = list(l = 20, r = 20, t = 40, b = 20),
-        height  = 250
-      )
+      layout(margin = list(l = 20, r = 20, t = 50, b = 20), height = 250)
   })
   
   output$stat_comparison <- renderPlotly({
@@ -197,28 +205,27 @@ server <- function(input, output, session) {
     
     tagList(
       fluidRow(
-        column(3, result_card("Accuracy",
+        column(3, result_card("Winner Accuracy",
                               scales::percent(tm$accuracy, accuracy = 0.1),
-                              subtitle = "% games predicted correctly",
+                              subtitle = "Derived from predicted margin",
                               color = "#4CAF50")),
-        column(3, result_card("Brier Score",
-                              round(tm$brier_score, 4),
-                              subtitle = "Probability calibration (lower = better)",
-                              color = "#2196F3")),
-        column(3, result_card("Log Loss",
-                              round(tm$log_loss, 4),
-                              subtitle = "Confidence penalty (lower = better)",
-                              color = "#FF9800")),
         column(3, result_card("Score MAE",
-                              glue("{round(tm$mae_points, 1)} pts"),
-                              subtitle = "Avg points off per team per game",
+                              glue("{round(tm$mae_points, 2)} pts"),
+                              subtitle = "Avg error per team per game",
+                              color = "#2196F3")),
+        column(3, result_card("Margin MAE",
+                              glue("{round(tm$mae_margin, 2)} pts"),
+                              subtitle = "Avg error in point differential",
+                              color = "#FF9800")),
+        column(3, result_card("RMSE",
+                              glue("{round(tm$rmse_points, 2)} pts"),
+                              subtitle = "Penalizes large misses more",
                               color = "#9C27B0"))
       ),
       fluidRow(
         column(6, p(class = "text-muted",
-                    glue("Train games: {m$n_train} | ",
-                         "Test games: {m$n_test} | ",
-                         "Trained: {m$trained_date}"))),
+                    glue("Train: {m$n_train} | Test: {m$n_test} | ",
+                         "Trained: {m$trained_date}")))
       )
     )
   })
