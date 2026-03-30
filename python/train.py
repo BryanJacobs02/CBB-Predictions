@@ -7,11 +7,11 @@ import pandas as pd
 from datetime import datetime
 from gnn_model import TeamGNN, MatchupPredictor
 
-
 # Resolve save directory relative to this file's location, not working directory
 _DEFAULT_SAVE_DIR = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "models")
 )
+
 
 def to_records(matchup_labels):
     df = pd.DataFrame(matchup_labels)
@@ -20,21 +20,11 @@ def to_records(matchup_labels):
 
 def evaluate(gnn, pred, records, game_feats_a, game_feats_b,
              x, edge_index, edge_attr):
-    """
-    Leak-free evaluation: uses point-in-time feature vectors per game
-    rather than current season ratings.
-    """
     gnn.eval(); pred.eval()
 
     with torch.no_grad():
-        # Get graph embeddings (structural relationships)
         embeddings = gnn(x, edge_index, edge_attr)
 
-        # Build per-game feature tensors
-        fa = torch.tensor(np.array(game_feats_a), dtype=torch.float)
-        fb = torch.tensor(np.array(game_feats_b), dtype=torch.float)
-
-        # Blend graph embedding with point-in-time features
         idx_a = torch.tensor([int(r["team_a_idx"]) for r in records],
                               dtype=torch.long)
         idx_b = torch.tensor([int(r["team_b_idx"]) for r in records],
@@ -58,7 +48,6 @@ def evaluate(gnn, pred, records, game_feats_a, game_feats_b,
     actuals_sa = np.array([float(r["score_a"]) for r in records])
     actuals_sb = np.array([float(r["score_b"]) for r in records])
 
-    # ── Classification ────────────────────────────────────────────────────────
     accuracy = float(np.mean((pred_wp >= 0.5).astype(int) == actuals_wp))
     brier    = float(np.mean((pred_wp - actuals_wp) ** 2))
     eps      = 1e-7
@@ -67,13 +56,11 @@ def evaluate(gnn, pred, records, game_feats_a, game_feats_b,
         (1 - actuals_wp) * np.log(1 - pred_wp + eps)
     ))
 
-    # ── Scores ────────────────────────────────────────────────────────────────
     mae  = float((np.mean(np.abs(pred_sa - actuals_sa)) +
                   np.mean(np.abs(pred_sb - actuals_sb))) / 2)
     rmse = float((np.sqrt(np.mean((pred_sa - actuals_sa) ** 2)) +
                   np.sqrt(np.mean((pred_sb - actuals_sb) ** 2))) / 2)
 
-    # ── ROI ───────────────────────────────────────────────────────────────────
     roi_by_threshold = {}
     for threshold in [0.55, 0.60, 0.65]:
         bets_a = pred_wp >= threshold
@@ -108,63 +95,59 @@ def train(node_features, edge_src, edge_dst, edge_weights,
           team_names, matchup_labels, game_feats_a, game_feats_b,
           recency_weights, half_life_days=60.0, epochs=300, lr=1e-3,
           test_fraction=0.2, save_dir=None):
-            if save_dir is None:
-              save_dir = _DEFAULT_SAVE_DIR
+
+    if save_dir is None:
+        save_dir = _DEFAULT_SAVE_DIR
 
     os.makedirs(save_dir, exist_ok=True)
 
-    x          = torch.tensor(np.array(node_features), dtype=torch.float)
-    edge_index = torch.tensor([list(edge_src), list(edge_dst)], dtype=torch.long)
-    edge_attr  = torch.tensor(list(edge_weights), dtype=torch.float)
+    x           = torch.tensor(np.array(node_features), dtype=torch.float)
+    edge_index  = torch.tensor([list(edge_src), list(edge_dst)], dtype=torch.long)
+    edge_attr   = torch.tensor(list(edge_weights), dtype=torch.float)
     in_channels = x.shape[1]
 
     records     = to_records(matchup_labels)
     rec_weights = list(recency_weights)
 
-    # Per-game point-in-time feature tensors
-    fa_all = np.array(game_feats_a)
-    fb_all = np.array(game_feats_b)
+    fa_all   = np.array(game_feats_a)
+    fb_all   = np.array(game_feats_b)
+    feat_dim = fa_all.shape[1]
 
     # Align feature dims with node features if needed
-    feat_dim = x.shape[1]
-    if fa_all.shape[1] != feat_dim:
-        # Pad or truncate to match
+    if fa_all.shape[1] != in_channels:
         def align(arr, dim):
             if arr.shape[1] < dim:
                 pad = np.zeros((arr.shape[0], dim - arr.shape[1]))
                 return np.hstack([arr, pad])
             return arr[:, :dim]
-        fa_all = align(fa_all, feat_dim)
-        fb_all = align(fb_all, feat_dim)
+        fa_all = align(fa_all, in_channels)
+        fb_all = align(fb_all, in_channels)
 
     # ── Chronological train/test split ────────────────────────────────────────
-    n_total  = len(records)
-    n_train  = int(n_total * (1 - test_fraction))
+    n_total = len(records)
+    n_train = int(n_total * (1 - test_fraction))
 
-    train_records  = records[:n_train]
-    test_records   = records[n_train:]
-    train_fa       = fa_all[:n_train]
-    train_fb       = fb_all[:n_train]
-    test_fa        = fa_all[n_train:]
-    test_fb        = fb_all[n_train:]
-    train_weights  = torch.tensor(rec_weights[:n_train], dtype=torch.float)
+    train_records = records[:n_train]
+    test_records  = records[n_train:]
+    train_fa      = fa_all[:n_train]
+    train_fb      = fb_all[:n_train]
+    test_fa       = fa_all[n_train:]
+    test_fb       = fb_all[n_train:]
+    train_weights = torch.tensor(rec_weights[:n_train], dtype=torch.float)
 
     print(f"Train: {len(train_records)} games | "
           f"Test: {len(test_records)} games | "
           f"half-life={half_life_days}d | epochs={epochs}")
-    print("Note: using point-in-time features — no data leakage.")
+    print(f"Saving to: {save_dir}")
 
     # ── Models ────────────────────────────────────────────────────────────────
-    feat_dim = fa_all.shape[1]
     gnn  = TeamGNN(in_channels)
     pred = MatchupPredictor(embed_dim=32, hidden=64, feat_dim=feat_dim)
     optimizer = torch.optim.Adam(
         list(gnn.parameters()) + list(pred.parameters()),
         lr=lr, weight_decay=1e-4
     )
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=epochs
-    )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
     bce = torch.nn.BCELoss(reduction="none")
     mse = torch.nn.MSELoss(reduction="none")
@@ -175,21 +158,17 @@ def train(node_features, edge_src, edge_dst, edge_weights,
 
         embeddings = gnn(x, edge_index, edge_attr)
 
-        # Convert training features to tensors
-        fa_t = torch.tensor(train_fa, dtype=torch.float)
-        fb_t = torch.tensor(train_fb, dtype=torch.float)
-
+        fa_t  = torch.tensor(train_fa, dtype=torch.float)
+        fb_t  = torch.tensor(train_fb, dtype=torch.float)
         idx_a = torch.tensor([int(r["team_a_idx"]) for r in train_records],
                               dtype=torch.long)
         idx_b = torch.tensor([int(r["team_b_idx"]) for r in train_records],
                               dtype=torch.long)
 
-        # Blend graph embedding + point-in-time features
         fa_proj, fb_proj = pred.project_feats(fa_t, fb_t)
         ea = embeddings[idx_a] + fa_proj
         eb = embeddings[idx_b] + fb_proj
 
-        # Vectorized forward pass over all training games
         x_cat   = torch.cat([ea, eb], dim=-1)
         x_cat_h = F.relu(pred.fc1(x_cat))
         x_cat_h = F.relu(pred.fc2(x_cat_h))
@@ -201,7 +180,7 @@ def train(node_features, edge_src, edge_dst, edge_weights,
         scores_a = torch.tensor([float(r["score_a"]) for r in train_records])
         scores_b = torch.tensor([float(r["score_b"]) for r in train_records])
 
-        loss_wp = (bce(wp_all, winners)  * train_weights).sum()
+        loss_wp = (bce(wp_all, winners) * train_weights).sum()
         loss_sc = ((mse(sa_all, scores_a) +
                     mse(sb_all, scores_b)) * train_weights * 0.005).sum()
 
@@ -221,7 +200,7 @@ def train(node_features, edge_src, edge_dst, edge_weights,
                   f"LR: {scheduler.get_last_lr()[0]:.5f}")
 
     # ── Evaluate ──────────────────────────────────────────────────────────────
-    print("\nEvaluating on held-out test set (point-in-time features)...")
+    print("\nEvaluating on held-out test set...")
     test_metrics  = evaluate(gnn, pred, test_records,
                               test_fa, test_fb, x, edge_index, edge_attr)
     train_metrics = evaluate(gnn, pred, train_records,
@@ -256,5 +235,5 @@ def train(node_features, edge_src, edge_dst, edge_weights,
             "n_test":        len(test_records)
         }, f)
 
-    print("\nModel saved.")
+    print(f"\nModel saved to: {save_dir}")
     return test_metrics
