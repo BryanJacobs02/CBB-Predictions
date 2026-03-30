@@ -171,17 +171,23 @@ server <- function(input, output, session) {
     m   <- eval_metrics()
     roi <- m$test_metrics$roi_by_threshold
     
+    # Handle both "0.6" and "0.60" key formats
+    get_roi <- function(r, key_options) {
+      for (k in key_options) {
+        if (!is.null(r[[k]])) return(r[[k]])
+      }
+      list(roi_pct = 0, n_bets = 0, win_rate = 0)
+    }
+    
+    r55 <- get_roi(roi, c("0.55"))
+    r60 <- get_roi(roi, c("0.6", "0.60"))
+    r65 <- get_roi(roi, c("0.65"))
+    
     df <- tibble(
       threshold = c("55%", "60%", "65%"),
-      roi       = c(roi[["0.55"]]$roi_pct,
-                    roi[["0.6"]]$roi_pct,
-                    roi[["0.65"]]$roi_pct),
-      n_bets    = c(roi[["0.55"]]$n_bets,
-                    roi[["0.6"]]$n_bets,
-                    roi[["0.65"]]$n_bets),
-      win_rate  = c(roi[["0.55"]]$win_rate,
-                    roi[["0.6"]]$win_rate,
-                    roi[["0.65"]]$win_rate)
+      roi       = c(r55$roi_pct, r60$roi_pct, r65$roi_pct),
+      n_bets    = c(r55$n_bets,  r60$n_bets,  r65$n_bets),
+      win_rate  = c(r55$win_rate, r60$win_rate, r65$win_rate)
     )
     
     plot_ly(df, x = ~threshold, y = ~roi, type = "bar",
