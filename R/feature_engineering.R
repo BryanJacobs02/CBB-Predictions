@@ -1,3 +1,15 @@
+# ── Features where lower raw value = better (inverted during normalization) ──
+LOWER_IS_BETTER <- c(
+  "AdjDE",
+  "DeFG_Pct",
+  "DOR_Pct",
+  "DFT_Rate",
+  "OppFG3Pct",
+  "DefFt",
+  "DefFg2",
+  "DefFg3"
+)
+
 # ── Season-level static data fetchers (cached per season) ─────────────────────
 get_four_factors_season <- memoise(function(year) {
   kenpom_get("four-factors", y = year)
@@ -88,7 +100,6 @@ build_feature_matrix <- function(year = SEASON_YEAR) {
       mutate(Momentum = AdjEM_now - AdjEM_30) |>
       select(TeamName, Momentum)
   }, error = function(e) {
-    message("Momentum unavailable: ", e$message)
     tibble(TeamName = df$TeamName, Momentum = 0)
   })
   
@@ -98,13 +109,16 @@ build_feature_matrix <- function(year = SEASON_YEAR) {
   archive_unavailable <- c("SOS", "NCSOS", "Pythag", "APL_Off", "APL_Def", "Luck")
   df <- df |> select(-any_of(archive_unavailable))
   
-  # ── Normalize ─────────────────────────────────────────────────────────────
+  # ── Normalize all numeric features to [0,1] ───────────────────────────────
+  # Invert LOWER_IS_BETTER cols so higher normalized always = better
   numeric_cols <- df |> select(where(is.numeric)) |> names()
   df <- df |>
     mutate(across(all_of(numeric_cols), ~ {
       mn <- min(.x, na.rm = TRUE)
       mx <- max(.x, na.rm = TRUE)
-      if (mx == mn) 0 else (.x - mn) / (mx - mn)
+      if (mx == mn) return(rep(0, length(.x)))
+      normalized <- (.x - mn) / (mx - mn)
+      if (cur_column() %in% LOWER_IS_BETTER) 1 - normalized else normalized
     })) |>
     replace_na(as.list(setNames(rep(0, length(numeric_cols)), numeric_cols))) |>
     distinct(TeamName, .keep_all = TRUE)
@@ -116,7 +130,6 @@ build_feature_matrix <- function(year = SEASON_YEAR) {
 build_historical_feature_matrix <- function(seasons = c(SEASON_YEAR - 2,
                                                         SEASON_YEAR - 1,
                                                         SEASON_YEAR)) {
-  # Generate weekly archive dates per season
   season_date_ranges <- map_dfr(seasons, function(s) {
     start <- as.Date(glue("{s - 1}-11-01"))
     end   <- as.Date(glue("{s}-04-15"))
@@ -128,9 +141,8 @@ build_historical_feature_matrix <- function(seasons = c(SEASON_YEAR - 2,
   if (nrow(season_date_ranges) == 0) stop("No valid archive date ranges.")
   
   message(glue("Fetching {nrow(season_date_ranges)} weekly archive snapshots..."))
-  
-  # Pre-fetch season-level static data for each season — no leakage
   message("Fetching season-level static features (no leakage)...")
+  
   season_static <- map(seasons, function(s) {
     message(glue("  Static features for season {s}..."))
     tryCatch(
@@ -143,14 +155,13 @@ build_historical_feature_matrix <- function(seasons = c(SEASON_YEAR - 2,
   })
   names(season_static) <- as.character(seasons)
   
-  # Fetch weekly archive snapshots
-  snapshots <- list()
-  dates     <- season_date_ranges$snap_date
+  snapshots        <- list()
+  dates            <- season_date_ranges$snap_date
   seasons_for_date <- season_date_ranges$season
   
   for (i in seq_along(dates)) {
-    d <- as.character(dates[i])
-    s <- seasons_for_date[i]
+    d         <- as.character(dates[i])
+    s         <- seasons_for_date[i]
     static_df <- season_static[[as.character(s)]]
     
     if (is.null(static_df)) next
@@ -165,7 +176,6 @@ build_historical_feature_matrix <- function(seasons = c(SEASON_YEAR - 2,
           AdjTempo_snap = AdjTempo
         )
       
-      # Momentum from 4 weeks prior
       prev_date <- as.character(dates[i] - 28)
       momentum <- tryCatch({
         prev_arch <- get_archive(prev_date) |>
@@ -179,7 +189,6 @@ build_historical_feature_matrix <- function(seasons = c(SEASON_YEAR - 2,
         arch |> mutate(Momentum = 0)
       })
       
-      # Join season-specific static features with point-in-time archive ratings
       snap_df <- static_df |>
         left_join(momentum, by = "TeamName") |>
         rename(
@@ -190,16 +199,19 @@ build_historical_feature_matrix <- function(seasons = c(SEASON_YEAR - 2,
         ) |>
         distinct(TeamName, .keep_all = TRUE)
       
-      # Normalize within snapshot
+      # Only atomic numeric columns
       numeric_cols <- names(snap_df)[sapply(snap_df, function(col) {
         is.numeric(col) && !is.list(col)
       })]
       
+      # Normalize with inversion for lower_is_better cols
       snap_df <- snap_df |>
         mutate(across(all_of(numeric_cols), ~ {
           mn <- min(.x, na.rm = TRUE)
           mx <- max(.x, na.rm = TRUE)
-          if (mx == mn) 0 else (.x - mn) / (mx - mn)
+          if (mx == mn) return(rep(0, length(.x)))
+          normalized <- (.x - mn) / (mx - mn)
+          if (cur_column() %in% LOWER_IS_BETTER) 1 - normalized else normalized
         })) |>
         replace_na(as.list(setNames(rep(0, length(numeric_cols)), numeric_cols))) |>
         distinct(TeamName, .keep_all = TRUE)
