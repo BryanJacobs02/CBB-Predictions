@@ -540,8 +540,8 @@ build_actual_training_labels <- function(graph,
       score_b    = row$home_score,
       game_date  = as.character(row$game_date),
       neutral    = as.integer(row$neutral_site),
-      feats_a    = jsonlite::toJSON(away_feats),
-      feats_b    = jsonlite::toJSON(home_feats)
+      feats_a    = as.character(jsonlite::toJSON(away_feats)),
+      feats_b    = as.character(jsonlite::toJSON(home_feats))
     )
   })
   
