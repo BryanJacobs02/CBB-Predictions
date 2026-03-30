@@ -1,3 +1,5 @@
+if (!requireNamespace("memoise", quietly = TRUE)) install.packages("memoise", repos = "https://cloud.r-project.org")
+if (!requireNamespace("cachem",  quietly = TRUE)) install.packages("cachem",  repos = "https://cloud.r-project.org")
 library(memoise)
 library(cachem)
 
