@@ -26,39 +26,66 @@ server <- function(input, output, session) {
     team_a <- p$team_a
     team_b <- p$team_b
     winner <- if (g$pred_score_a > g$pred_score_b) team_a else team_b
-    loser  <- if (winner == team_a) team_b else team_a
     margin <- abs(g$pred_score_a - g$pred_score_b)
     wp     <- if (winner == team_a) g$win_prob_a else g$win_prob_b
     
+    # Get team aesthetics
+    aesthetics <- get_team_aesthetics()
+    logo_a  <- get_team_logo(team_a, aesthetics)
+    logo_b  <- get_team_logo(team_b, aesthetics)
+    color_a <- get_team_color(team_a, aesthetics, primary = TRUE)
+    color_b <- get_team_color(team_b, aesthetics, primary = TRUE)
+    
     tagList(
+      # Matchup header with logos
+      matchup_header(team_a, team_b, logo_a, logo_b, color_a, color_b),
+      
+      # Score prediction
       fluidRow(
-        column(6, result_card("Predicted Winner", winner, color = "#4CAF50")),
-        column(6, result_card("Predicted Margin",
-                              glue("+{round(margin, 1)} pts"),
-                              subtitle = glue("in favor of {winner}"),
-                              color = "#FF9800"))
+        column(4, result_card(
+          glue("{team_a} Score"),
+          round(g$pred_score_a, 1),
+          color = color_a
+        )),
+        column(4, result_card(
+          "Predicted Margin",
+          glue("+{round(margin, 1)}"),
+          subtitle = glue("in favor of {winner}"),
+          color = "#58a6ff"
+        )),
+        column(4, result_card(
+          glue("{team_b} Score"),
+          round(g$pred_score_b, 1),
+          color = color_b
+        ))
       ),
+      
+      # Winner and implied probability
       fluidRow(
-        column(6, result_card(glue("{team_a} Score"),
-                              round(g$pred_score_a, 1), color = "#2196F3")),
-        column(6, result_card(glue("{team_b} Score"),
-                              round(g$pred_score_b, 1), color = "#9C27B0"))
+        column(6, result_card(
+          "Predicted Winner",
+          winner,
+          subtitle = glue("{scales::percent(wp, accuracy=1)} implied win probability"),
+          color = "#3fb950"
+        )),
+        column(6, result_card(
+          "Predicted Total",
+          round(g$pred_score_a + g$pred_score_b, 1),
+          subtitle = "combined projected points",
+          color = "#d29922"
+        ))
       ),
-      fluidRow(
-        column(12,
-               div(class = "alert alert-info", style = "margin-top: 12px;",
-                   icon("info-circle"), strong(" Implied win probability: "),
-                   glue("{scales::percent(wp, accuracy=1)} for {winner} ",
-                        "(derived from {round(margin,1)}-point margin)")
-               )
-        )
-      ),
+      
+      # KenPom reference
       if (!is.null(p$kenpom)) {
         km <- p$kenpom
-        div(class = "alert alert-secondary", style = "margin-top: 8px;",
-            icon("chart-line"), strong(" KenPom reference: "),
-            glue("{km$Home} {round(km$HomePred, 1)} – ",
-                 "{km$Visitor} {round(km$VisitorPred, 1)}")
+        div(
+          class = "alert alert-secondary",
+          style = "margin-top: 8px;",
+          icon("chart-line"),
+          strong(" KenPom reference: "),
+          glue("{km$Home} {round(km$HomePred, 1)} – ",
+               "{km$Visitor} {round(km$VisitorPred, 1)}")
         )
       }
     )
@@ -141,6 +168,95 @@ server <- function(input, output, session) {
         xaxis   = list(title = ""),
         legend  = list(orientation = "h", y = -0.2)
       )
+  })
+  
+  # ── Update bet team choices after prediction ──────────────────────────────
+  observeEvent(prediction(), {
+    p <- prediction()
+    updateSelectInput(session, "bet_team",
+                      choices = c(p$team_a, p$team_b),
+                      selected = if (p$gnn$pred_score_a > p$gnn$pred_score_b) p$team_a else p$team_b
+    )
+  })
+  
+  # ── Betting analysis ───────────────────────────────────────────────────────
+  observeEvent(input$analyze_bet_btn, {
+    req(prediction(), input$bet_team, input$bet_spread, input$bet_moneyline)
+    p          <- prediction()
+    g          <- p$gnn
+    bet_team   <- input$bet_team
+    spread     <- input$bet_spread
+    moneyline  <- input$bet_moneyline
+    
+    # Determine if bet team is home (team_a) or away (team_b)
+    is_home    <- bet_team == p$team_a
+    pred_score <- if (is_home) g$pred_score_a else g$pred_score_b
+    opp_score  <- if (is_home) g$pred_score_b else g$pred_score_a
+    pred_margin <- pred_score - opp_score  # positive = bet team wins
+    
+    # ── Spread analysis ──────────────────────────────────────────────────────
+    # Negative spread means bet team is favorite (must win by more than |spread|)
+    # Positive spread means bet team is underdog (can lose by less than spread)
+    spread_cover <- pred_margin > -spread  # covers if margin beats the spread
+    spread_diff  <- pred_margin - (-spread)  # how much better/worse than spread
+    
+    spread_class   <- if (spread_cover) "yes" else "no"
+    spread_verdict <- if (spread_cover) "COVER ✓" else "NO COVER ✗"
+    spread_detail  <- glue(
+      "Model predicts {bet_team} by {round(pred_margin, 1)} pts. ",
+      "Spread: {ifelse(spread > 0, '+', '')}{spread}. ",
+      "Edge: {ifelse(spread_diff > 0, '+', '')}{round(spread_diff, 1)} pts"
+    )
+    
+    # ── Moneyline analysis ───────────────────────────────────────────────────
+    # Convert moneyline to implied probability
+    ml_implied_prob <- if (moneyline < 0) {
+      abs(moneyline) / (abs(moneyline) + 100)
+    } else {
+      100 / (moneyline + 100)
+    }
+    
+    model_win_prob <- if (is_home) g$win_prob_a else g$win_prob_b
+    edge <- model_win_prob - ml_implied_prob
+    
+    # Kelly criterion for bet sizing suggestion
+    # Kelly fraction = (bp - q) / b where b = decimal odds - 1
+    decimal_odds <- if (moneyline < 0) {
+      100 / abs(moneyline) + 1
+    } else {
+      moneyline / 100 + 1
+    }
+    b <- decimal_odds - 1
+    kelly_fraction <- (b * model_win_prob - (1 - model_win_prob)) / b
+    kelly_pct <- max(0, kelly_fraction) * 100
+    
+    ml_class   <- if (edge > 0.03) "yes" else if (edge > 0) "neutral" else "no"
+    ml_verdict <- if (edge > 0.03) "VALUE ✓" else if (edge > 0) "SLIGHT EDGE" else "NO VALUE ✗"
+    ml_detail  <- glue(
+      "Model win prob: {scales::percent(model_win_prob, 0.1)}. ",
+      "Line implied: {scales::percent(ml_implied_prob, 0.1)}. ",
+      "Edge: {ifelse(edge > 0, '+', '')}{scales::percent(edge, 0.1)}. ",
+      "{if (kelly_pct > 0) glue('Kelly: {round(kelly_pct, 1)}% of bankroll') ",
+      "else 'Kelly: no bet'}"
+    )
+    
+    output$bet_analysis <- renderUI({
+      tagList(
+        hr(style = "border-color: var(--border); margin: 16px 0;"),
+        fluidRow(
+          column(6, bet_box("Spread Analysis", spread_verdict,
+                            spread_detail, spread_class)),
+          column(6, bet_box("Moneyline Analysis", ml_verdict,
+                            ml_detail, ml_class))
+        ),
+        div(
+          class = "alert alert-secondary",
+          style = "margin-top: 8px; font-size: 0.78rem;",
+          icon("exclamation-triangle"),
+          " Model MAE is ~8.7 pts. Use as one input among many — not financial advice."
+        )
+      )
+    })
   })
   
   # ── Training ───────────────────────────────────────────────────────────────

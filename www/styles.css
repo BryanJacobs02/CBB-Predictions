@@ -1,4 +1,352 @@
-.result-card { transition: box-shadow 0.2s; }
-.result-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
-.content-wrapper { background: #f4f6f9; }
-.alert-info { border-radius: 4px; padding: 10px 14px; }
+/* ── Fonts ───────────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap');
+
+/* ── Variables ───────────────────────────────────────────────────────────── */
+:root {
+  --bg-dark:     #0d1117;
+  --bg-card:     #161b22;
+  --bg-elevated: #1c2128;
+  --border:      #30363d;
+  --text-primary:   #e6edf3;
+  --text-secondary: #8b949e;
+  --accent:      #58a6ff;
+  --green:       #3fb950;
+  --orange:      #d29922;
+  --red:         #f85149;
+  --purple:      #bc8cff;
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+body, .wrapper, .content-wrapper, .main-sidebar {
+  background: var(--bg-dark) !important;
+  font-family: 'Barlow', sans-serif;
+  color: var(--text-primary) !important;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
+.main-sidebar, .sidebar {
+  background: var(--bg-card) !important;
+  border-right: 1px solid var(--border) !important;
+}
+
+.sidebar-menu > li > a {
+  color: var(--text-secondary) !important;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  border-left: 3px solid transparent !important;
+  transition: all 0.2s ease;
+}
+
+.sidebar-menu > li.active > a,
+.sidebar-menu > li > a:hover {
+  color: var(--text-primary) !important;
+  background: var(--bg-elevated) !important;
+  border-left-color: var(--accent) !important;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+.main-header .navbar,
+.main-header .logo {
+  background: var(--bg-card) !important;
+  border-bottom: 1px solid var(--border) !important;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-primary) !important;
+}
+
+.main-header .logo {
+  color: var(--accent) !important;
+  font-size: 1.1rem;
+}
+
+/* ── Boxes ────────────────────────────────────────────────────────────────── */
+.box {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.box-header {
+  background: var(--bg-elevated) !important;
+  border-bottom: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  border-radius: 8px 8px 0 0 !important;
+}
+
+.box.box-primary { border-top-color: var(--accent) !important; }
+.box.box-success { border-top-color: var(--green) !important; }
+.box.box-warning { border-top-color: var(--orange) !important; }
+.box.box-info    { border-top-color: var(--purple) !important; }
+
+/* ── Result cards ─────────────────────────────────────────────────────────── */
+.result-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 12px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.result-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+
+.result-card .card-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin: 0 0 6px;
+}
+
+.result-card .card-value {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 2.2rem;
+  line-height: 1;
+  margin: 0;
+}
+
+.result-card .card-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin: 6px 0 0;
+}
+
+/* ── Team matchup header ──────────────────────────────────────────────────── */
+.matchup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.team-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.team-logo {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+}
+
+.team-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.vs-block {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 1.4rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.1em;
+  padding: 0 20px;
+}
+
+/* ── Betting box ──────────────────────────────────────────────────────────── */
+.bet-value-box {
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 8px;
+  border-left: 4px solid;
+}
+
+.bet-value-box.bet-yes {
+  background: rgba(63, 185, 80, 0.1);
+  border-left-color: var(--green);
+}
+
+.bet-value-box.bet-no {
+  background: rgba(248, 81, 73, 0.1);
+  border-left-color: var(--red);
+}
+
+.bet-value-box.bet-neutral {
+  background: rgba(210, 153, 34, 0.1);
+  border-left-color: var(--orange);
+}
+
+.bet-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 0 0 4px;
+}
+
+.bet-verdict {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 1.6rem;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.bet-detail {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 4px 0 0;
+}
+
+/* ── Inputs ───────────────────────────────────────────────────────────────── */
+.form-control, .selectize-input {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+  border-radius: 6px !important;
+}
+
+.form-control:focus, .selectize-input.focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15) !important;
+}
+
+.selectize-dropdown {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+.selectize-dropdown .option:hover,
+.selectize-dropdown .option.active {
+  background: var(--bg-dark) !important;
+  color: var(--accent) !important;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+.btn-primary {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: var(--bg-dark) !important;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 6px !important;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  background: #79bfff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(88, 166, 255, 0.3) !important;
+}
+
+.btn-warning {
+  background: var(--orange) !important;
+  border-color: var(--orange) !important;
+  color: var(--bg-dark) !important;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 6px !important;
+}
+
+/* ── Radio buttons ────────────────────────────────────────────────────────── */
+.radio label, .checkbox label {
+  color: var(--text-secondary) !important;
+  font-size: 0.85rem;
+}
+
+/* ── Alerts ───────────────────────────────────────────────────────────────── */
+.alert-info {
+  background: rgba(88, 166, 255, 0.1) !important;
+  border: 1px solid rgba(88, 166, 255, 0.3) !important;
+  color: var(--text-primary) !important;
+  border-radius: 6px !important;
+}
+
+.alert-secondary {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-secondary) !important;
+  border-radius: 6px !important;
+}
+
+/* ── DataTables ───────────────────────────────────────────────────────────── */
+.dataTables_wrapper, table.dataTable {
+  color: var(--text-primary) !important;
+}
+
+table.dataTable thead th {
+  background: var(--bg-elevated) !important;
+  border-bottom: 1px solid var(--border) !important;
+  color: var(--text-secondary) !important;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+
+table.dataTable tbody tr {
+  background: var(--bg-card) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+table.dataTable tbody tr:hover {
+  background: var(--bg-elevated) !important;
+}
+
+.dataTables_filter input,
+.dataTables_length select {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+/* ── Plotly ───────────────────────────────────────────────────────────────── */
+.js-plotly-plot .plotly {
+  background: transparent !important;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-dark); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+/* ── Text ─────────────────────────────────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6, p, label, .text-muted {
+  color: var(--text-primary) !important;
+}
+
+.text-muted { color: var(--text-secondary) !important; }
+
+/* ── Slider ───────────────────────────────────────────────────────────────── */
+.irs-bar, .irs-bar-edge { background: var(--accent) !important; }
+.irs-single { background: var(--accent) !important; }
+.irs-line { background: var(--border) !important; }

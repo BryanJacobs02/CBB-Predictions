@@ -39,6 +39,32 @@ ui <- dashboardPage(
               fluidRow(
                 box(width = 6, title = "Win Probability",     plotlyOutput("wp_gauge")),
                 box(width = 6, title = "Key Stat Comparison", plotlyOutput("stat_comparison"))
+              ),
+              fluidRow(
+                box(width = 12, title = "Betting Analysis", status = "info",
+                    fluidRow(
+                      column(3,
+                             selectInput("bet_team", "Team to Bet On",
+                                         choices = c("Select after predicting" = ""),
+                                         width = "100%")
+                      ),
+                      column(3,
+                             numericInput("bet_spread", "Point Spread (negative = favorite)",
+                                          value = -3.5, step = 0.5, width = "100%")
+                      ),
+                      column(3,
+                             numericInput("bet_moneyline", "Moneyline (e.g. -150 or +130)",
+                                          value = -150, step = 5, width = "100%")
+                      ),
+                      column(3,
+                             br(),
+                             actionButton("analyze_bet_btn", "Analyze Bet",
+                                          class = "btn-primary btn-block",
+                                          icon = icon("dollar-sign"))
+                      )
+                    ),
+                    uiOutput("bet_analysis")
+                )
               )
       ),
       
