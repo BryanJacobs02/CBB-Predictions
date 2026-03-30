@@ -75,7 +75,7 @@ run_training <- function(seasons   = c(SEASON_YEAR - 2,
   })
 }
 
-predict_game <- function(team_a, team_b) {
+predict_game <- function(team_a, team_b, location = "neutral") {
   init_python_modules()
   
   feats <- build_feature_matrix()
@@ -87,7 +87,6 @@ predict_game <- function(team_a, team_b) {
   if (length(idx_a) == 0 || length(idx_b) == 0)
     stop(glue("Team not found: '{team_a}' or '{team_b}'"))
   
-  # Extract current feature vectors for both teams
   numeric_cols <- feats |>
     select(where(~ is.numeric(.) && !is.list(.))) |>
     names()
@@ -112,15 +111,71 @@ predict_game <- function(team_a, team_b) {
   feat_vec_a <- safe_numeric(team_a_row, numeric_cols)
   feat_vec_b <- safe_numeric(team_b_row, numeric_cols)
   
-  result <- py_predict$predict_matchup(
-    node_features = graph$node_features,
-    edge_src      = graph$edge_src,
-    edge_dst      = graph$edge_dst,
-    edge_weights  = graph$edge_weights,
-    team_a_idx    = idx_a,
-    team_b_idx    = idx_b,
-    feat_vec_a    = feat_vec_a,
-    feat_vec_b    = feat_vec_b
+  if (location == "neutral") {
+    # Average both directions to remove home/away bias
+    result_ab <- py_predict$predict_matchup(
+      node_features = graph$node_features,
+      edge_src      = graph$edge_src,
+      edge_dst      = graph$edge_dst,
+      edge_weights  = graph$edge_weights,
+      team_a_idx    = idx_a,
+      team_b_idx    = idx_b,
+      feat_vec_a    = feat_vec_a,
+      feat_vec_b    = feat_vec_b
+    )
+    result_ba <- py_predict$predict_matchup(
+      node_features = graph$node_features,
+      edge_src      = graph$edge_src,
+      edge_dst      = graph$edge_dst,
+      edge_weights  = graph$edge_weights,
+      team_a_idx    = idx_b,
+      team_b_idx    = idx_a,
+      feat_vec_a    = feat_vec_b,
+      feat_vec_b    = feat_vec_a
+    )
+    wp_a    <- (result_ab$win_prob_a + result_ba$win_prob_b) / 2
+    score_a <- (result_ab$pred_score_a + result_ba$pred_score_b) / 2
+    score_b <- (result_ab$pred_score_b + result_ba$pred_score_a) / 2
+    
+  } else if (location == "a_home") {
+    # Team A is home = team B is away = team_a is team_b_idx in training convention
+    result <- py_predict$predict_matchup(
+      node_features = graph$node_features,
+      edge_src      = graph$edge_src,
+      edge_dst      = graph$edge_dst,
+      edge_weights  = graph$edge_weights,
+      team_a_idx    = idx_b,  # away
+      team_b_idx    = idx_a,  # home
+      feat_vec_a    = feat_vec_b,
+      feat_vec_b    = feat_vec_a
+    )
+    # Flip results back so team_a and team_b labels are correct
+    wp_a    <- result$win_prob_b
+    score_a <- result$pred_score_b
+    score_b <- result$pred_score_a
+    
+  } else {
+    # Team B is home = team A is away = standard convention
+    result <- py_predict$predict_matchup(
+      node_features = graph$node_features,
+      edge_src      = graph$edge_src,
+      edge_dst      = graph$edge_dst,
+      edge_weights  = graph$edge_weights,
+      team_a_idx    = idx_a,  # away
+      team_b_idx    = idx_b,  # home
+      feat_vec_a    = feat_vec_a,
+      feat_vec_b    = feat_vec_b
+    )
+    wp_a    <- result$win_prob_a
+    score_a <- result$pred_score_a
+    score_b <- result$pred_score_b
+  }
+  
+  result <- list(
+    win_prob_a   = wp_a,
+    win_prob_b   = 1 - wp_a,
+    pred_score_a = score_a,
+    pred_score_b = score_b
   )
   
   kenpom_pred <- tryCatch({

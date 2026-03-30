@@ -21,6 +21,14 @@ ui <- dashboardPage(
                 box(width = 4, title = "Select Teams", status = "primary",
                     uiOutput("team_picker_a"),
                     uiOutput("team_picker_b"),
+                    radioButtons("game_location", "Game Location",
+                                 choices = c(
+                                   "Team A is Home" = "a_home",
+                                   "Team B is Home" = "b_home",
+                                   "Neutral Site"   = "neutral"
+                                 ),
+                                 selected = "neutral"
+                    ),
                     actionButton("predict_btn", "Predict Outcome",
                                  class = "btn-primary btn-block", icon = icon("play"))
                 ),

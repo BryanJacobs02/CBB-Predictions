@@ -15,7 +15,8 @@ server <- function(input, output, session) {
   prediction <- eventReactive(input$predict_btn, {
     req(input$team_a, input$team_b)
     withProgress(message = "Running GNN prediction...", {
-      predict_game(input$team_a, input$team_b)
+      predict_game(input$team_a, input$team_b,
+                   location = input$game_location)
     })
   })
   
