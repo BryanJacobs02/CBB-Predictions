@@ -31,11 +31,15 @@ run_training <- function(seasons   = c(SEASON_YEAR - 2,
     labels <- build_actual_training_labels(graph, seasons)
     
     if (nrow(labels) < 50)
-      stop(glue("Only {nrow(labels)} matched games — too few to train. ",
-                "Try adding an older season."))
+      stop(glue("Only {nrow(labels)} matched games — too few to train."))
     
-    setProgress(0.7, message = glue("Training GNN on {nrow(labels)} games ",
-                                    "(half-life = {half_life} days)..."))
+    # ── Compute recency weights in R, pass directly to Python ─────────────
+    today       <- as.numeric(Sys.Date())
+    game_dates  <- as.numeric(as.Date(labels$game_date))
+    days_ago    <- today - game_dates
+    rec_weights <- pmax(0.5 ^ (days_ago / half_life), 1e-4)
+    
+    setProgress(0.7, message = glue("Training GNN on {nrow(labels)} games..."))
     
     py_train$train(
       node_features  = graph$node_features,
@@ -44,10 +48,10 @@ run_training <- function(seasons   = c(SEASON_YEAR - 2,
       edge_weights   = graph$edge_weights,
       team_names     = graph$team_names,
       matchup_labels = labels |>
-        mutate(game_date = as.character(game_date)) |>
-        select(-neutral) |>
+        select(team_a_idx, team_b_idx, winner, score_a, score_b) |>
         purrr::transpose(),
-      half_life_days = half_life
+      recency_weights = rec_weights,
+      half_life_days  = half_life
     )
     
     setProgress(1.0, message = "Done.")

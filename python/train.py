@@ -8,45 +8,29 @@ from datetime import datetime
 from gnn_model import TeamGNN, MatchupPredictor
 
 
-def compute_recency_weights(game_dates, half_life_days=60.0):
-    today = datetime.today()
-    weights = []
-    for d in game_dates:
-        days_ago = (today - datetime.strptime(str(d), "%Y-%m-%d")).days
-        w = 0.5 ** (days_ago / half_life_days)
-        weights.append(max(w, 1e-4))
-    return torch.tensor(weights, dtype=torch.float)
-
-
 def to_records(matchup_labels):
-    """
-    Robustly convert whatever reticulate sends into a list of row dicts.
-    reticulate can send R lists in several formats depending on structure.
-    Using pandas as the universal adapter handles all of them.
-    """
+    """Convert whatever reticulate sends into a list of row dicts."""
     df = pd.DataFrame(matchup_labels)
     return df.to_dict(orient="records")
 
 
 def train(node_features, edge_src, edge_dst, edge_weights,
-          team_names, matchup_labels,
-          epochs=300, lr=1e-3, half_life_days=60.0,
+          team_names, matchup_labels, recency_weights,
+          half_life_days=60.0, epochs=300, lr=1e-3,
           save_dir="../data/models"):
 
     os.makedirs(save_dir, exist_ok=True)
 
-    # ── Normalize input data ──────────────────────────────────────────────────
     x          = torch.tensor(np.array(node_features), dtype=torch.float)
     edge_index = torch.tensor([list(edge_src), list(edge_dst)], dtype=torch.long)
     edge_attr  = torch.tensor(list(edge_weights), dtype=torch.float)
     in_channels = x.shape[1]
 
-    # ── Convert matchup_labels to list of row dicts ───────────────────────────
+    # ── Convert labels ────────────────────────────────────────────────────────
     records = to_records(matchup_labels)
 
-    # ── Recency weights ───────────────────────────────────────────────────────
-    game_dates  = [str(row["game_date"]) for row in records]
-    rec_weights = compute_recency_weights(game_dates, half_life_days)
+    # ── Recency weights passed directly from R ────────────────────────────────
+    rec_weights = torch.tensor(list(recency_weights), dtype=torch.float)
 
     # ── Models ────────────────────────────────────────────────────────────────
     gnn  = TeamGNN(in_channels)
@@ -102,7 +86,6 @@ def train(node_features, edge_src, edge_dst, edge_weights,
                   f"Score loss: {loss_sc_total.item():.4f}  "
                   f"LR: {scheduler.get_last_lr()[0]:.5f}")
 
-    # ── Save ──────────────────────────────────────────────────────────────────
     torch.save(gnn.state_dict(),  os.path.join(save_dir, "gnn.pt"))
     torch.save(pred.state_dict(), os.path.join(save_dir, "predictor.pt"))
     with open(os.path.join(save_dir, "meta.pkl"), "wb") as f:
