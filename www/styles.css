@@ -35,7 +35,7 @@ body, .wrapper, .content-wrapper, .main-sidebar {
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  font-size: 0.8rem;
+  font-size: 1.5rem;
   border-left: 3px solid transparent !important;
   transition: all 0.2s ease;
 }
