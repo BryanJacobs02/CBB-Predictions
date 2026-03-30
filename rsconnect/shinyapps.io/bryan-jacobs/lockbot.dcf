@@ -5,6 +5,6 @@ account: bryan-jacobs
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 17021114
-bundleId: 11783561
+bundleId: 11783587
 url: https://bryan-jacobs.shinyapps.io/lockbot/
 version: 1

@@ -2,32 +2,32 @@ ui <- dashboardPage(
   dashboardHeader(
     title = tags$span(
       style = "font-family: 'Barlow Condensed', sans-serif;
-             font-weight: 900;
-             font-size: 3rem;
-             letter-spacing: 0.12em;
-             text-transform: uppercase;
-             color: #58a6ff;",
+               font-weight: 900;
+               font-size: 3rem;
+               letter-spacing: 0.12em;
+               text-transform: uppercase;
+               color: #58a6ff;",
       "LockBot 1.0"
     ),
     titleWidth = 250
   ),
   
   dashboardSidebar(
-    sidebarMenu(
-      menuItem("Predict Matchup", tabName = "predict", icon = icon("basketball-ball")),
+    do.call(sidebarMenu, Filter(Negate(is.null), list(
+      menuItem("Predict Matchup",  tabName = "predict", icon = icon("basketball-ball")),
       if (file.exists(".venv"))
-        menuItem("Train Model", tabName = "train", icon = icon("brain")),
-      menuItem("Team Stats",      tabName = "stats",  icon = icon("table")),
-      menuItem("Model Evaluation", tabName = "eval",  icon = icon("chart-line"))
-    )
+        menuItem("Train Model",    tabName = "train",   icon = icon("brain")),
+      menuItem("Team Stats",       tabName = "stats",   icon = icon("table")),
+      menuItem("Model Evaluation", tabName = "eval",    icon = icon("chart-line"))
+    )))
   ),
   
   dashboardBody(
     tags$head(tags$link(rel = "stylesheet", type = "text/css", href = "styles.css")),
     
-    tabItems(
+    do.call(tabItems, Filter(Negate(is.null), list(
       
-      # ── Predict ───────────────────────────────────────────────────────────
+      # ── Predict ─────────────────────────────────────────────────────────────
       tabItem("predict",
               fluidRow(
                 box(width = 4, title = "Select Teams", status = "primary",
@@ -80,50 +80,51 @@ ui <- dashboardPage(
               )
       ),
       
-      # ── Train ─────────────────────────────────────────────────────────────
+      # ── Train ────────────────────────────────────────────────────────────────
       if (file.exists(".venv"))
         tabItem("train",
-              box(width = 12, title = "Model Training", status = "warning",
-                  p("Trains the GNN on actual game results with point-in-time features.
-                      Expect 5–10 minutes (500 epochs)."),
-                  fluidRow(
-                    column(4,
-                           sliderInput("half_life", "Recency half-life (days)",
-                                       min = 14, max = 180, value = 60, step = 7),
-                           p(class = "text-muted",
-                             "Lower = recent games weighted much more heavily. ",
-                             "60 days means a game from 2 months ago counts half as much as today's.")
+                box(width = 12, title = "Model Training", status = "warning",
+                    p("Trains the GNN on actual game results with point-in-time features.
+               Expect 5–10 minutes (500 epochs)."),
+                    fluidRow(
+                      column(4,
+                             sliderInput("half_life", "Recency half-life (days)",
+                                         min = 14, max = 180, value = 60, step = 7),
+                             p(class = "text-muted",
+                               "Lower = recent games weighted much more heavily. ",
+                               "60 days means a game from 2 months ago counts half as much as today's.")
+                      ),
+                      column(4,
+                             checkboxGroupInput("train_seasons", "Seasons to include",
+                                                choices = setNames(
+                                                  c(SEASON_YEAR - 2, SEASON_YEAR - 1, SEASON_YEAR),
+                                                  c(glue("{SEASON_YEAR-3}-{SEASON_YEAR-2}"),
+                                                    glue("{SEASON_YEAR-2}-{SEASON_YEAR-1}"),
+                                                    glue("{SEASON_YEAR-1}-{SEASON_YEAR}"))
+                                                ),
+                                                selected = c(SEASON_YEAR - 2, SEASON_YEAR - 1, SEASON_YEAR)
+                             )
+                      ),
+                      column(4,
+                             br(),
+                             checkboxInput("full_train",
+                                           "Full train mode (use all data, deploy-ready)",
+                                           value = TRUE),
+                             actionButton("train_btn", "Train Model",
+                                          class = "btn-warning btn-block", icon = icon("cogs"))
+                      )
                     ),
-                    column(4,
-                           checkboxGroupInput("train_seasons", "Seasons to include",
-                                              choices = setNames(
-                                                c(SEASON_YEAR - 2, SEASON_YEAR - 1, SEASON_YEAR),
-                                                c(glue("{SEASON_YEAR-3}-{SEASON_YEAR-2}"),
-                                                  glue("{SEASON_YEAR-2}-{SEASON_YEAR-1}"),
-                                                  glue("{SEASON_YEAR-1}-{SEASON_YEAR}"))
-                                              ),
-                                              selected = c(SEASON_YEAR - 2, SEASON_YEAR - 1, SEASON_YEAR)
-                           )
-                    ),
-                    column(4,
-                           br(),
-                           checkboxInput("full_train", 
-                                         "Full train mode (use all data, deploy-ready)",
-                                         value = TRUE),
-                           actionButton("train_btn", "Train Model",
-                                        class = "btn-warning btn-block", icon = icon("cogs"))
-                    )
-                  ),
-                  verbatimTextOutput("train_log")
-              )
-      ),
+                    verbatimTextOutput("train_log")
+                )
+        ),
       
-      # ── Stats ─────────────────────────────────────────────────────────────
+      # ── Stats ────────────────────────────────────────────────────────────────
       tabItem("stats",
               box(width = 12, title = "Current Team Ratings",
                   DTOutput("ratings_table"))
       ),
       
+      # ── Eval ─────────────────────────────────────────────────────────────────
       tabItem("eval",
               fluidRow(
                 box(width = 12, title = "Model Evaluation — Held-Out Test Set",
@@ -133,6 +134,7 @@ ui <- dashboardPage(
                 )
               )
       )
-    )
+      
+    )))
   )
 )
