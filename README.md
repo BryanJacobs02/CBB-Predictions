@@ -10,7 +10,7 @@ The model is trained on ~12,600 historical games across three seasons using poin
 
 ## Live App
 
-**[https://bryan-jacobs.shinyapps.io/lockbot/)**
+**https://bryan-jacobs.shinyapps.io/lockbot/**
 
 ## Performance vs. Benchmarks
 
