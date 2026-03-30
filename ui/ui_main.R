@@ -23,7 +23,8 @@ ui <- dashboardPage(
   ),
   
   dashboardBody(
-    tags$head(tags$link(rel = "stylesheet", type = "text/css", href = "styles.css")),
+    tags$head(tags$title("LockBot 1.0"),
+              tags$link(rel = "stylesheet", type = "text/css", href = "styles.css")),
     
     do.call(tabItems, Filter(Negate(is.null), list(
       
