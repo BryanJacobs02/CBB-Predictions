@@ -405,33 +405,31 @@ build_name_crosswalk <- function(kenpom_names, espn_names) {
     # Strip mascot: ESPN names are "School Mascot(s)" — keep everything
     # before the last word (the mascot is usually 1-2 words at the end)
     strip_mascot <- function(x) {
-      words <- strsplit(x, " ")[[1]]
-      # Heuristic: school name is first 1-3 words, mascot is last 1-2 words
-      # Just take everything and let fuzzy matching handle it
+      mascots <- paste0(
+        "\\b(wildcats|tigers|bulldogs|eagles|hawks|bears|",
+        "lions|wolves|panthers|cougars|falcons|owls|rams|broncos|huskies|",
+        "aggies|rebels|trojans|gators|seminoles|knights|cardinals|pirates|",
+        "spartans|tar heels|crimson tide|wolverines|hoosiers|huskers|",
+        "cornhuskers|buckeyes|longhorns|razorbacks|volunteers|commodores|",
+        "demon deacons|mountaineers|hokies|cavaliers|hurricanes|gophers|",
+        "badgers|illini|hawkeyes|cyclones|boilermakers|sooners|cowboys|",
+        "jayhawks|bearcats|golden bears|golden eagles|blue devils|",
+        "blue demons|orange|wave|rainbow warriors|rainbow|anteaters|",
+        "tritons|gauchos|highlanders|matadors|49ers|roadrunners|miners|",
+        "lumberjacks|colonels|kings|dukes|friars|gaels|bonnies|",
+        "peacocks|red storm|billikens|musketeers|flyers|ramblers|",
+        "penguins|zips|rockets|chippewas|redhawks|bobcats|",
+        "bison|buffalo|bulls|sun devils|salukis|purple aces|purple eagles|",
+        "red foxes|leopards|buccaneers|patriots|colonials|jaspers|",
+        "scarlet knights|golden rams|golden flashes|golden flash|",
+        "fighting irish|fighting illini|fighting hawks|",
+        "mean green|green wave|golden hurricane|red raiders|",
+        "blue raiders|blue hens|chanticleers|ospreys|mocs|",
+        "catamounts|grizzlies|seawolves|retrievers|terrapins|terriers|",
+        "utes|running rebels|red wolves|hilltoppers|leathernecks|braves|chiefs)\\b"
+      )
       tolower(x) |>
-        stringr::str_replace_all("\\b(wildcats|tigers|bulldogs|eagles|hawks|bears|"
-                                 "lions|wolves|panthers|cougars|falcons|owls|rams|broncos|huskies|"
-                                 "aggies|rebels|trojans|gators|seminoles|knights|cardinals|pirates|"
-                                 "spartans|tar heels|crimson tide|wolverines|hoosiers|huskers|"
-                                 "cornhuskers|buckeyes|longhorns|razorbacks|volunteers|commodores|"
-                                 "demon deacons|mountaineers|hokies|cavaliers|hurricanes|gophers|"
-                                 "badgers|illini|hawkeyes|cyclones|boilermakers|sooners|cowboys|"
-                                 "jayhawks|bearcats|golden bears|golden eagles|blue devils|"
-                                 "blue demons|orange|wave|rainbow warriors|rainbow|anteaters|"
-                                 "tritons|gauchos|highlanders|matadors|49ers|roadrunners|miners|"
-                                 "lumberjacks|colonels|kings|dukes|friars|gaels|bonnies|"
-                                 "peacocks|red storm|billikens|musketeers|flyers|ramblers|"
-                                 "penguins|zips|rockets|chippewas|cardinals|redhawks|bobcats|"
-                                 "bison|buffalo|bulls|sun devils|salukis|purple aces|purple eagles|"
-                                 "red foxes|leopards|buccaneers|patriots|colonials|jaspers|"
-                                 "scarlet knights|golden rams|golden flash|golden flashes|"
-                                 "fighting irish|fighting illini|fighting hawks|"
-                                 "mean green|green wave|golden hurricane|red raiders|"
-                                 "blue raiders|blue hens|chanticleers|ospreys|mocs|"
-                                 "catamounts|grizzlies|bobcats|bears|cougars|"
-                                 "seawolves|retrievers|terrapins|terriers|utes|running rebels|"
-                                 "red wolves|hilltoppers|leathernecks|broncos|braves|chiefs)\\b",
-                                 "") |>
+        stringr::str_replace_all(mascots, "") |>
         stringr::str_squish()
     }
     
