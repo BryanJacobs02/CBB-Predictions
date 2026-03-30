@@ -4,9 +4,9 @@
 
 ## Project Overview
 
-LockBot uses a Graph Attention Network (GAT) to predict final scores for any NCAA Division I men's basketball matchup. Unlike models that evaluate teams in isolation, LockBot learns from inter-team relationships — conference rivalries, common opponents, and competitive history — on top of 35 advanced statistical features sourced from the KenPom API. Predictions include projected final scores, implied win probability, point spread coverage analysis, and moneyline value assessment against user-entered betting lines.
+LockBot uses a Graph Attention Network (GAT) to predict final scores for any NCAA Division I men's basketball matchup. Unlike models that evaluate teams in isolation, LockBot learns from inter-team relationships (conference rivalries, common opponents, and competitive history) on top of 35 advanced statistical features sourced from the KenPom API. Predictions include projected final scores, implied win probability, point spread coverage analysis, and moneyline value assessment against user-entered betting lines.
 
-The model is trained on ~12,600 historical games across three seasons using point-in-time features to prevent data leakage — a 2024 game is evaluated using only statistics available in 2024, not end-of-2026 ratings.
+The model is trained on ~12,600 historical games across three seasons using point-in-time features to prevent data leakage. A 2024 game is evaluated using only statistics available in 2024, not end-of-2026 ratings.
 
 ## Live App
 
@@ -24,7 +24,7 @@ Evaluated on a chronologically held-out test set of 2,530 games never seen durin
 | Brier Score (implied) | **0.187** | — | ~0.170 |
 | Home advantage learned | **5.07 pts** | 5.1 pts (actual avg) | — |
 
-LockBot matches or exceeds KenPom's raw score prediction accuracy and approaches Vegas-level winner prediction — without access to line movement, injury reports, or real-time data.
+LockBot matches or exceeds KenPom's raw score prediction accuracy and approaches Vegas-level winner prediction without access to line movement, injury reports, or real-time data.
 
 ## Authors
 
