@@ -71,57 +71,403 @@ load_game_results <- memoise(function(seasons = c(SEASON_YEAR - 2,
     arrange(game_date)
 }, cache = cache)
 
+# Known manual overrides where automated matching will still fail
+MANUAL_CROSSWALK <- c(
+  "App State Mountaineers"            = "Appalachian St.",
+  "UTSA Roadrunners"                  = "UT San Antonio",
+  "LIU Sharks"                        = "LIU Brooklyn",
+  "UTEP Miners"                       = "UTEP",
+  "UAB Blazers"                       = "UAB",
+  "UConn Huskies"                     = "Connecticut",
+  "UMass Minutemen"                   = "Massachusetts",
+  "UCF Knights"                       = "Central Florida",
+  "UNLV Rebels"                       = "UNLV",
+  "USC Trojans"                        = "Southern California",
+  "LSU Tigers"                        = "LSU",
+  "SMU Mustangs"                      = "SMU",
+  "TCU Horned Frogs"                  = "TCU",
+  "VCU Rams"                          = "VCU",
+  "VMI Keydets"                       = "VMI",
+  "BYU Cougars"                       = "BYU",
+  "FIU Panthers"                      = "Florida Intl",
+  "FAU Owls"                          = "Florida Atlantic",
+  "FGCU Eagles"                       = "FL Gulf Coast",
+  "SIU Edwardsville Cougars"          = "SIU Edwardsville",
+  "UIW Cardinals"                     = "Incarnate Word",
+  "IUPUI Jaguars"                     = "IUPUI",
+  "UIC Flames"                        = "Illinois Chicago",
+  "UNC Asheville Bulldogs"            = "UNC Asheville",
+  "UNC Greensboro Spartans"           = "UNC Greensboro",
+  "UNC Wilmington Seahawks"           = "UNC Wilmington",
+  "NC State Wolfpack"                 = "NC State",
+  "North Carolina Tar Heels"          = "North Carolina",
+  "Mississippi Rebels"                = "Ole Miss",
+  "Mississippi St. Bulldogs"          = "Mississippi St.",
+  "Miami Hurricanes"                  = "Miami FL",
+  "Miami (OH) Redhawks"               = "Miami OH",
+  "Ohio State Buckeyes"               = "Ohio St.",
+  "Michigan State Spartans"           = "Michigan St.",
+  "Kansas State Wildcats"             = "Kansas St.",
+  "Iowa State Cyclones"               = "Iowa St.",
+  "Colorado State Rams"               = "Colorado St.",
+  "Boise State Broncos"               = "Boise St.",
+  "Arizona State Sun Devils"          = "Arizona St.",
+  "Arkansas State Red Wolves"         = "Arkansas St.",
+  "Appalachian State Mountaineers"    = "Appalachian St.",
+  "Ball State Cardinals"              = "Ball St.",
+  "Bowling Green Falcons"             = "Bowling Green",
+  "Florida State Seminoles"           = "Florida St.",
+  "Georgia State Panthers"            = "Georgia St.",
+  "Idaho State Bengals"               = "Idaho St.",
+  "Illinois State Redbirds"           = "Illinois St.",
+  "Indiana State Sycamores"           = "Indiana St.",
+  "Kent State Golden Flashes"         = "Kent St.",
+  "Louisiana State Tigers"            = "LSU",
+  "McNeese State Cowboys"             = "McNeese St.",
+  "Mississippi Valley State Delta Devils" = "Mississippi Val.",
+  "Montana State Bobcats"             = "Montana St.",
+  "Morgan State Bears"                = "Morgan St.",
+  "Murray State Racers"               = "Murray St.",
+  "New Mexico State Aggies"           = "New Mexico St.",
+  "Nicholls State Colonels"           = "Nicholls St.",
+  "Norfolk State Spartans"            = "Norfolk St.",
+  "North Carolina State Wolfpack"     = "NC State",
+  "Northwestern State Demons"         = "Northwestern St.",
+  "Ohio State Buckeyes"               = "Ohio St.",
+  "Oklahoma State Cowboys"            = "Oklahoma St.",
+  "Oregon State Beavers"              = "Oregon St.",
+  "Penn State Nittany Lions"          = "Penn St.",
+  "Portland State Vikings"            = "Portland St.",
+  "Sacramento State Hornets"          = "Sacramento St.",
+  "Sam Houston State Bearkats"        = "Sam Houston St.",
+  "San Diego State Aztecs"            = "San Diego St.",
+  "Savannah State Tigers"             = "Savannah St.",
+  "South Carolina State Bulldogs"     = "South Carolina St.",
+  "Southeast Missouri State Redhawks" = "SE Missouri St.",
+  "Southern Illinois Salukis"         = "Southern Illinois",
+  "Stephen F. Austin Lumberjacks"     = "SF Austin",
+  "Tarleton State Texans"             = "Tarleton St.",
+  "Tennessee State Tigers"            = "Tennessee St.",
+  "Tennessee Tech Golden Eagles"      = "Tennessee Tech",
+  "Texas A&M Corpus Christi Islanders" = "TAM C. Christi",
+  "Texas Southern Tigers"             = "Texas Southern",
+  "Texas State Bobcats"               = "Texas St.",
+  "Utah State Aggies"                 = "Utah St.",
+  "Washington State Cougars"          = "Washington St.",
+  "Weber State Wildcats"              = "Weber St.",
+  "Wichita State Shockers"            = "Wichita St.",
+  "Winston-Salem State Rams"          = "Winston-Salem St.",
+  "Wright State Raiders"              = "Wright St.",
+  "Youngstown State Penguins"         = "Youngstown St.",
+  "Albany Great Danes"                = "Albany",
+  "American University Eagles"        = "American",
+  "Arkansas Pine Bluff Golden Lions"  = "Arkansas Pine Bluff",
+  "Army Black Knights"                = "Army",
+  "Belmont Bruins"                    = "Belmont",
+  "Brown Bears"                       = "Brown",
+  "Bucknell Bison"                    = "Bucknell",
+  "Butler Bulldogs"                   = "Butler",
+  "Campbell Camels"                   = "Campbell",
+  "Charleston Southern Buccaneers"    = "Charleston So.",
+  "Chattanooga Mocs"                  = "Chattanooga",
+  "Chicago St. Cougars"               = "Chicago St.",
+  "Cleveland St. Vikings"             = "Cleveland St.",
+  "Coastal Carolina Chanticleers"     = "Coastal Carolina",
+  "Columbia Lions"                    = "Columbia",
+  "Cornell Big Red"                   = "Cornell",
+  "Dartmouth Big Green"               = "Dartmouth",
+  "Davidson Wildcats"                 = "Davidson",
+  "Dayton Flyers"                     = "Dayton",
+  "Delaware Fightin Blue Hens"        = "Delaware",
+  "Denver Pioneers"                   = "Denver",
+  "DePaul Blue Demons"                = "DePaul",
+  "Detroit Mercy Titans"              = "Detroit",
+  "Drake Bulldogs"                    = "Drake",
+  "Drexel Dragons"                    = "Drexel",
+  "Duke Blue Devils"                  = "Duke",
+  "Duquesne Dukes"                    = "Duquesne",
+  "East Carolina Pirates"             = "East Carolina",
+  "Eastern Illinois Panthers"         = "Eastern Illinois",
+  "Eastern Kentucky Colonels"         = "Eastern Kentucky",
+  "Eastern Michigan Eagles"           = "Eastern Michigan",
+  "Eastern Washington Eagles"         = "Eastern Washington",
+  "Elon Phoenix"                      = "Elon",
+  "Evansville Purple Aces"            = "Evansville",
+  "Fairfield Stags"                   = "Fairfield",
+  "Fairleigh Dickinson Knights"       = "F. Dickinson",
+  "Florida Gators"                    = "Florida",
+  "Florida A&M Rattlers"              = "Florida A&M",
+  "Fordham Rams"                      = "Fordham",
+  "Fresno State Bulldogs"             = "Fresno St.",
+  "Furman Paladins"                   = "Furman",
+  "Gardner-Webb Runnin' Bulldogs"     = "Gardner-Webb",
+  "George Mason Patriots"             = "George Mason",
+  "George Washington Colonials"       = "George Washington",
+  "Georgetown Hoyas"                  = "Georgetown",
+  "Georgia Bulldogs"                  = "Georgia",
+  "Georgia Southern Eagles"           = "Georgia Southern",
+  "Georgia Tech Yellow Jackets"       = "Georgia Tech",
+  "Gonzaga Bulldogs"                  = "Gonzaga",
+  "Grambling Tigers"                  = "Grambling St.",
+  "Grand Canyon Antelopes"            = "Grand Canyon",
+  "Hampton Pirates"                   = "Hampton",
+  "Hartford Hawks"                    = "Hartford",
+  "Harvard Crimson"                   = "Harvard",
+  "Hawaii Rainbow Warriors"           = "Hawaii",
+  "High Point Panthers"               = "High Point",
+  "Hofstra Pride"                     = "Hofstra",
+  "Holy Cross Crusaders"              = "Holy Cross",
+  "Houston Cougars"                   = "Houston",
+  "Howard Bison"                      = "Howard",
+  "Idaho Vandals"                     = "Idaho",
+  "Illinois Fighting Illini"          = "Illinois",
+  "Indiana Hoosiers"                  = "Indiana",
+  "Iona Gaels"                        = "Iona",
+  "Iowa Hawkeyes"                     = "Iowa",
+  "IPFW Mastodons"                    = "Fort Wayne",
+  "Jackson State Tigers"              = "Jackson St.",
+  "Jacksonville Dolphins"             = "Jacksonville",
+  "Jacksonville State Gamecocks"      = "Jacksonville St.",
+  "James Madison Dukes"               = "James Madison",
+  "Kansas Jayhawks"                   = "Kansas",
+  "Kennesaw State Owls"               = "Kennesaw St.",
+  "Kentucky Wildcats"                 = "Kentucky",
+  "Lafayette Leopards"                = "Lafayette",
+  "Lamar Cardinals"                   = "Lamar",
+  "Lehigh Mountain Hawks"             = "Lehigh",
+  "Liberty Flames"                    = "Liberty",
+  "Lipscomb Bisons"                   = "Lipscomb",
+  "Long Beach State Beach"            = "Long Beach St.",
+  "Longwood Lancers"                  = "Longwood",
+  "Louisiana Ragin' Cajuns"           = "Louisiana",
+  "Louisiana Tech Bulldogs"           = "Louisiana Tech",
+  "Louisville Cardinals"              = "Louisville",
+  "Loyola Chicago Ramblers"           = "Loyola Chicago",
+  "Loyola Maryland Greyhounds"        = "Loyola Maryland",
+  "Loyola Marymount Lions"            = "Loyola Marymount",
+  "Maine Black Bears"                 = "Maine",
+  "Manhattan Jaspers"                 = "Manhattan",
+  "Marist Red Foxes"                  = "Marist",
+  "Marquette Golden Eagles"           = "Marquette",
+  "Marshall Thundering Herd"          = "Marshall",
+  "Maryland Terrapins"                = "Maryland",
+  "Massachusetts Lowell River Hawks"  = "UMass Lowell",
+  "Memphis Tigers"                    = "Memphis",
+  "Mercer Bears"                      = "Mercer",
+  "Miami FL Hurricanes"               = "Miami FL",
+  "Michigan Wolverines"               = "Michigan",
+  "Middle Tennessee Blue Raiders"     = "Middle Tennessee",
+  "Milwaukee Panthers"                = "Milwaukee",
+  "Minnesota Golden Gophers"          = "Minnesota",
+  "Missouri Tigers"                   = "Missouri",
+  "Monmouth Hawks"                    = "Monmouth",
+  "Montana Grizzlies"                 = "Montana",
+  "Morehead State Eagles"             = "Morehead St.",
+  "Mount St. Mary's Mountaineers"     = "Mt. St. Mary's",
+  "Navy Midshipmen"                   = "Navy",
+  "Nebraska Cornhuskers"              = "Nebraska",
+  "Nevada Wolf Pack"                  = "Nevada",
+  "New Hampshire Wildcats"            = "New Hampshire",
+  "New Mexico Lobos"                  = "New Mexico",
+  "New Orleans Privateers"            = "New Orleans",
+  "Niagara Purple Eagles"             = "Niagara",
+  "North Carolina A&T Aggies"         = "North Carolina A&T",
+  "North Dakota Fighting Hawks"       = "North Dakota",
+  "North Dakota State Bison"          = "North Dakota St.",
+  "North Florida Ospreys"             = "North Florida",
+  "North Texas Mean Green"            = "North Texas",
+  "Northeastern Huskies"              = "Northeastern",
+  "Northern Arizona Lumberjacks"      = "Northern Arizona",
+  "Northern Colorado Bears"           = "Northern Colorado",
+  "Northern Illinois Huskies"         = "Northern Illinois",
+  "Northern Iowa Panthers"            = "Northern Iowa",
+  "Northern Kentucky Norse"           = "Northern Kentucky",
+  "Northwestern Wildcats"             = "Northwestern",
+  "Notre Dame Fighting Irish"         = "Notre Dame",
+  "Oakland Golden Grizzlies"          = "Oakland",
+  "Ohio Bobcats"                      = "Ohio",
+  "Oklahoma Sooners"                  = "Oklahoma",
+  "Old Dominion Monarchs"             = "Old Dominion",
+  "Oral Roberts Golden Eagles"        = "Oral Roberts",
+  "Oregon Ducks"                      = "Oregon",
+  "Pacific Tigers"                    = "Pacific",
+  "Pennsylvania Quakers"              = "Pennsylvania",
+  "Pepperdine Waves"                  = "Pepperdine",
+  "Pittsburgh Panthers"               = "Pittsburgh",
+  "Prairie View A&M Panthers"         = "Prairie View",
+  "Presbyterian Blue Hose"            = "Presbyterian",
+  "Princeton Tigers"                  = "Princeton",
+  "Providence Friars"                 = "Providence",
+  "Purdue Boilermakers"               = "Purdue",
+  "Purdue Fort Wayne Mastodons"       = "Fort Wayne",
+  "Quinnipiac Bobcats"                = "Quinnipiac",
+  "Radford Highlanders"               = "Radford",
+  "Rhode Island Rams"                 = "Rhode Island",
+  "Rice Owls"                         = "Rice",
+  "Richmond Spiders"                  = "Richmond",
+  "Rider Broncs"                      = "Rider",
+  "Robert Morris Colonials"           = "Robert Morris",
+  "Rutgers Scarlet Knights"           = "Rutgers",
+  "Saint Joseph's Hawks"              = "Saint Joseph's",
+  "Saint Louis Billikens"             = "Saint Louis",
+  "Saint Mary's Gaels"                = "Saint Mary's",
+  "Saint Peter's Peacocks"            = "St. Peter's",
+  "San Diego Toreros"                 = "San Diego",
+  "San Francisco Dons"                = "San Francisco",
+  "San Jose State Spartans"           = "San Jose St.",
+  "Santa Clara Broncos"               = "Santa Clara",
+  "Seattle Redhawks"                  = "Seattle",
+  "Seton Hall Pirates"                = "Seton Hall",
+  "Siena Saints"                      = "Siena",
+  "South Alabama Jaguars"             = "South Alabama",
+  "South Carolina Gamecocks"          = "South Carolina",
+  "South Dakota Coyotes"              = "South Dakota",
+  "South Dakota State Jackrabbits"    = "South Dakota St.",
+  "South Florida Bulls"               = "South Florida",
+  "Southeast Missouri Redhawks"       = "SE Missouri St.",
+  "Southeastern Louisiana Lions"      = "SE Louisiana",
+  "Southern Jaguars"                  = "Southern",
+  "Southern Miss Golden Eagles"       = "Southern Miss",
+  "Southern Utah Thunderbirds"        = "Southern Utah",
+  "St. Bonaventure Bonnies"           = "St. Bonaventure",
+  "St. Francis Brooklyn Terriers"     = "St. Francis NY",
+  "St. Francis PA Red Flash"          = "St. Francis PA",
+  "St. John's Red Storm"              = "St. John's",
+  "Stanford Cardinal"                 = "Stanford",
+  "Stetson Hatters"                   = "Stetson",
+  "Stony Brook Seawolves"             = "Stony Brook",
+  "Syracuse Orange"                   = "Syracuse",
+  "Temple Owls"                       = "Temple",
+  "Tennessee Volunteers"              = "Tennessee",
+  "Texas Longhorns"                   = "Texas",
+  "Texas A&M Aggies"                  = "Texas A&M",
+  "Texas Christian Horned Frogs"      = "TCU",
+  "Texas Tech Red Raiders"            = "Texas Tech",
+  "Toledo Rockets"                    = "Toledo",
+  "Towson Tigers"                     = "Towson",
+  "Troy Trojans"                      = "Troy",
+  "Tulane Green Wave"                 = "Tulane",
+  "Tulsa Golden Hurricane"            = "Tulsa",
+  "UC Davis Aggies"                   = "UC Davis",
+  "UC Irvine Anteaters"               = "UC Irvine",
+  "UC Riverside Highlanders"          = "UC Riverside",
+  "UC San Diego Tritons"              = "UC San Diego",
+  "UC Santa Barbara Gauchos"          = "UC Santa Barbara",
+  "UCLA Bruins"                       = "UCLA",
+  "UMass Lowell River Hawks"          = "UMass Lowell",
+  "UT Arlington Mavericks"            = "UT Arlington",
+  "UT Martin Skyhawks"                = "UT Martin",
+  "UT Rio Grande Valley Vaqueros"     = "UT Rio Grande Valley",
+  "UTSA Roadrunners"                  = "UT San Antonio",
+  "Valparaiso Beacons"                = "Valparaiso",
+  "Vanderbilt Commodores"             = "Vanderbilt",
+  "Vermont Catamounts"                = "Vermont",
+  "Villanova Wildcats"                = "Villanova",
+  "Virginia Cavaliers"                = "Virginia",
+  "Virginia Tech Hokies"              = "Virginia Tech",
+  "Wagner Seahawks"                   = "Wagner",
+  "Wake Forest Demon Deacons"         = "Wake Forest",
+  "Washington Huskies"                = "Washington",
+  "West Virginia Mountaineers"        = "West Virginia",
+  "Western Carolina Catamounts"       = "Western Carolina",
+  "Western Illinois Leathernecks"     = "Western Illinois",
+  "Western Kentucky Hilltoppers"      = "Western Kentucky",
+  "Western Michigan Broncos"          = "Western Michigan",
+  "William & Mary Tribe"              = "William & Mary",
+  "Winthrop Eagles"                   = "Winthrop",
+  "Wisconsin Badgers"                 = "Wisconsin",
+  "Wofford Terriers"                  = "Wofford",
+  "Wyoming Cowboys"                   = "Wyoming",
+  "Xavier Musketeers"                 = "Xavier",
+  "Yale Bulldogs"                     = "Yale"
+)
+
 build_name_crosswalk <- function(kenpom_names, espn_names) {
-  # Normalize names for comparison
-  normalize <- function(x) {
-    x |>
-      tolower() |>
-      stringr::str_replace_all("\\bst\\.?\\b", "state") |>
-      stringr::str_replace_all("\\buc\\b", "california") |>
-      stringr::str_replace_all("[^a-z0-9 ]", "") |>
-      stringr::str_squish()
-  }
+  # Step 1: apply manual overrides first
+  result <- tibble(kenpom = kenpom_names, espn = NA_character_, dist = NA_real_)
   
-  kp_norm   <- normalize(kenpom_names)
-  espn_norm <- normalize(espn_names)
+  manual_hits <- MANUAL_CROSSWALK[espn_names]
+  manual_hits <- manual_hits[!is.na(manual_hits)]
   
-  # Try exact match on normalized names first
-  exact_idx <- match(kp_norm, espn_norm)
-  exact <- tibble(
-    kenpom = kenpom_names,
-    espn   = ifelse(!is.na(exact_idx), espn_names[exact_idx], NA_character_),
-    dist   = ifelse(!is.na(exact_idx), 0, NA_real_)
-  )
-  
-  unmatched_kp_idx   <- which(is.na(exact$espn))
-  unmatched_espn_idx <- which(!espn_names %in% exact$espn[!is.na(exact$espn)])
-  
-  # Fuzzy match on remaining
-  if (length(unmatched_kp_idx) > 0 && length(unmatched_espn_idx) > 0) {
-    unmatched_kp_norm   <- kp_norm[unmatched_kp_idx]
-    unmatched_espn_norm <- espn_norm[unmatched_espn_idx]
-    
-    fuzzy_results <- map_dfr(seq_along(unmatched_kp_idx), function(j) {
-      dists    <- stringdist::stringdist(
-        unmatched_kp_norm[j], unmatched_espn_norm, method = "jw"
-      )
-      best_idx <- which.min(dists)
-      best_dist <- dists[best_idx]
-      tibble(
-        kp_idx = unmatched_kp_idx[j],
-        espn   = if (best_dist < 0.12) espn_names[unmatched_espn_idx[best_idx]]
-        else NA_character_,
-        dist   = best_dist
-      )
-    })
-    
-    for (i in seq_len(nrow(fuzzy_results))) {
-      exact$espn[fuzzy_results$kp_idx[i]] <- fuzzy_results$espn[i]
-      exact$dist[fuzzy_results$kp_idx[i]] <- fuzzy_results$dist[i]
+  for (espn_name in names(manual_hits)) {
+    kp_name <- manual_hits[[espn_name]]
+    if (kp_name %in% kenpom_names) {
+      result$espn[result$kenpom == kp_name] <- espn_name
+      result$dist[result$kenpom == kp_name] <- 0
     }
   }
   
-  exact
+  # Step 2: for still-unmatched KenPom teams, strip mascot from ESPN
+  # and fuzzy match on the school name portion only
+  still_unmatched <- result |> dplyr::filter(is.na(espn)) |> dplyr::pull(kenpom)
+  
+  if (length(still_unmatched) > 0) {
+    # Strip mascot: ESPN names are "School Mascot(s)" — keep everything
+    # before the last word (the mascot is usually 1-2 words at the end)
+    strip_mascot <- function(x) {
+      words <- strsplit(x, " ")[[1]]
+      # Heuristic: school name is first 1-3 words, mascot is last 1-2 words
+      # Just take everything and let fuzzy matching handle it
+      tolower(x) |>
+        stringr::str_replace_all("\\b(wildcats|tigers|bulldogs|eagles|hawks|bears|"
+                                 "lions|wolves|panthers|cougars|falcons|owls|rams|broncos|huskies|"
+                                 "aggies|rebels|trojans|gators|seminoles|knights|cardinals|pirates|"
+                                 "spartans|tar heels|crimson tide|wolverines|hoosiers|huskers|"
+                                 "cornhuskers|buckeyes|longhorns|razorbacks|volunteers|commodores|"
+                                 "demon deacons|mountaineers|hokies|cavaliers|hurricanes|gophers|"
+                                 "badgers|illini|hawkeyes|cyclones|boilermakers|sooners|cowboys|"
+                                 "jayhawks|bearcats|golden bears|golden eagles|blue devils|"
+                                 "blue demons|orange|wave|rainbow warriors|rainbow|anteaters|"
+                                 "tritons|gauchos|highlanders|matadors|49ers|roadrunners|miners|"
+                                 "lumberjacks|colonels|kings|dukes|friars|gaels|bonnies|"
+                                 "peacocks|red storm|billikens|musketeers|flyers|ramblers|"
+                                 "penguins|zips|rockets|chippewas|cardinals|redhawks|bobcats|"
+                                 "bison|buffalo|bulls|sun devils|salukis|purple aces|purple eagles|"
+                                 "red foxes|leopards|buccaneers|patriots|colonials|jaspers|"
+                                 "scarlet knights|golden rams|golden flash|golden flashes|"
+                                 "fighting irish|fighting illini|fighting hawks|"
+                                 "mean green|green wave|golden hurricane|red raiders|"
+                                 "blue raiders|blue hens|chanticleers|ospreys|mocs|"
+                                 "catamounts|grizzlies|bobcats|bears|cougars|"
+                                 "seawolves|retrievers|terrapins|terriers|utes|running rebels|"
+                                 "red wolves|hilltoppers|leathernecks|broncos|braves|chiefs)\\b",
+                                 "") |>
+        stringr::str_squish()
+    }
+    
+    espn_stripped <- setNames(sapply(espn_names, strip_mascot), espn_names)
+    
+    normalize <- function(x) {
+      x |>
+        tolower() |>
+        stringr::str_replace_all("\\bst\\.?\\b", "st") |>
+        stringr::str_replace_all("\\.", "") |>
+        stringr::str_replace_all("[^a-z0-9 ]", "") |>
+        stringr::str_squish()
+    }
+    
+    kp_norm   <- normalize(still_unmatched)
+    espn_norm <- normalize(espn_stripped)
+    
+    fuzzy <- map_dfr(seq_along(still_unmatched), function(j) {
+      dists    <- stringdist::stringdist(kp_norm[j], espn_norm, method = "jw")
+      best_idx <- which.min(dists)
+      tibble(
+        kenpom = still_unmatched[j],
+        espn   = if (dists[best_idx] < 0.12) espn_names[best_idx] else NA_character_,
+        dist   = dists[best_idx]
+      )
+    })
+    
+    for (i in seq_len(nrow(fuzzy))) {
+      if (!is.na(fuzzy$espn[i])) {
+        result$espn[result$kenpom == fuzzy$kenpom[i]] <- fuzzy$espn[i]
+        result$dist[result$kenpom == fuzzy$kenpom[i]] <- fuzzy$dist[i]
+      }
+    }
+  }
+  
+  result
 }
 
 build_actual_training_labels <- function(graph,
