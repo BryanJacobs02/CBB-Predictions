@@ -81,7 +81,7 @@ run_training <- function(seasons   = c(SEASON_YEAR - 2,
 
 predict_game <- function(team_a, team_b, location = "neutral") {
   
-  # ── Try cache first (deployed mode) ────────────────────────────────────────
+  # ── Deployed mode: serve from cache only, no API calls needed ──────────────
   if (!is.null(PREDICTION_CACHE)) {
     cached <- lookup_cached_prediction(team_a, team_b, location, PREDICTION_CACHE)
     if (!is.null(cached)) {
@@ -93,17 +93,19 @@ predict_game <- function(team_a, team_b, location = "neutral") {
       }, error = \(e) NULL)
       
       return(list(
-        gnn     = cached,
-        kenpom  = kenpom_pred,
-        team_a  = team_a,
-        team_b  = team_b
+        gnn    = cached,
+        kenpom = kenpom_pred,
+        team_a = team_a,
+        team_b = team_b
       ))
+    } else {
+      stop(glue("Prediction not found in cache for {team_a} vs {team_b}. ",
+                "Please retrain and regenerate the cache."))
     }
   }
   
-  # ── Fall back to live Python prediction ────────────────────────────────────
+  # ── Local mode: live Python prediction ─────────────────────────────────────
   init_python_modules()
-  
   feats <- build_feature_matrix()
   graph <- build_team_graph(feats)
   
