@@ -9,3 +9,4 @@ __pycache__/
 .env
 data/models/*.pt
 data/models/*.pkl
+data/predictions_cache.rds

@@ -277,11 +277,22 @@ server <- function(input, output, session) {
     )
     
     tryCatch({
-      run_training(seasons = seasons, half_life = half_life, full_train = input$full_train)
+      run_training(seasons = seasons, half_life = half_life,
+                   full_train = input$full_train)
+      
       output$train_log <- renderText(
-        glue("✅ Training complete.\n",
+        glue("✅ Training complete. Generating prediction cache...\n",
+             "This will take 20-30 minutes for all D1 matchups.")
+      )
+      
+      # Generate cache after training
+      PREDICTION_CACHE <<- generate_prediction_cache()
+      
+      output$train_log <- renderText(
+        glue("✅ Training and cache complete.\n",
              "Seasons: {paste(seasons, collapse=', ')}\n",
              "Half-life: {half_life} days\n",
+             "Cached {length(PREDICTION_CACHE)} matchups.\n",
              "Model saved to data/models/")
       )
     }, error = function(e) {

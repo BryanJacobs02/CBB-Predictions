@@ -37,6 +37,12 @@ source("R/graph_builder.R")
 source("R/game_results.R")
 source("R/prediction.R")
 source("R/team_data.R")
+source("R/prediction_cache.R")
 source("ui/ui_main.R")
 source("ui/ui_components.R")
 source("server/server_main.R")
+
+# ── Load prediction cache (used on shinyapps.io deployment) ──────────────────
+PREDICTION_CACHE <- load_prediction_cache()
+IS_DEPLOYED      <- !is.null(PREDICTION_CACHE) && !reticulate::py_available()
+message(glue("Mode: {if (IS_DEPLOYED) 'DEPLOYED (cache)' else 'LOCAL (live Python)'}"))

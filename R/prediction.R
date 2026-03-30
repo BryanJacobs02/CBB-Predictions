@@ -79,6 +79,28 @@ run_training <- function(seasons   = c(SEASON_YEAR - 2,
 }
 
 predict_game <- function(team_a, team_b, location = "neutral") {
+  
+  # ── Try cache first (deployed mode) ────────────────────────────────────────
+  if (!is.null(PREDICTION_CACHE)) {
+    cached <- lookup_cached_prediction(team_a, team_b, location, PREDICTION_CACHE)
+    if (!is.null(cached)) {
+      kenpom_pred <- tryCatch({
+        fm <- get_fanmatch() |>
+          filter((Visitor == team_a & Home == team_b) |
+                   (Visitor == team_b & Home == team_a))
+        if (nrow(fm) > 0) fm[1, ] else NULL
+      }, error = \(e) NULL)
+      
+      return(list(
+        gnn     = cached,
+        kenpom  = kenpom_pred,
+        team_a  = team_a,
+        team_b  = team_b
+      ))
+    }
+  }
+  
+  # ── Fall back to live Python prediction ────────────────────────────────────
   init_python_modules()
   
   feats <- build_feature_matrix()
@@ -96,9 +118,6 @@ predict_game <- function(team_a, team_b, location = "neutral") {
   
   team_a_row <- feats |> filter(TeamName == team_a) |> slice(1)
   team_b_row <- feats |> filter(TeamName == team_b) |> slice(1)
-  
-  if (nrow(team_a_row) == 0 || nrow(team_b_row) == 0)
-    stop(glue("Team features not found for '{team_a}' or '{team_b}'"))
   
   safe_numeric <- function(df_row, cols) {
     vals <- sapply(cols, function(col) {
@@ -129,31 +148,31 @@ predict_game <- function(team_a, team_b, location = "neutral") {
   }
   
   if (location == "a_home") {
-    r <- run_pred(idx_a, idx_b, feat_vec_a, feat_vec_b, neutral = 0)
+    r       <- run_pred(idx_a, idx_b, feat_vec_a, feat_vec_b, neutral = 0)
     wp_a    <- r$win_prob_a
     score_a <- r$pred_score_a
     score_b <- r$pred_score_b
     
   } else if (location == "b_home") {
-    r <- run_pred(idx_b, idx_a, feat_vec_b, feat_vec_a, neutral = 0)
+    r       <- run_pred(idx_b, idx_a, feat_vec_b, feat_vec_a, neutral = 0)
     wp_a    <- r$win_prob_b
     score_a <- r$pred_score_b
     score_b <- r$pred_score_a
     
   } else {
-    # Neutral site — average both directions
-    r_ab <- run_pred(idx_a, idx_b, feat_vec_a, feat_vec_b, neutral = 1)
-    r_ba <- run_pred(idx_b, idx_a, feat_vec_b, feat_vec_a, neutral = 1)
+    r_ab    <- run_pred(idx_a, idx_b, feat_vec_a, feat_vec_b, neutral = 1)
+    r_ba    <- run_pred(idx_b, idx_a, feat_vec_b, feat_vec_a, neutral = 1)
     wp_a    <- (r_ab$win_prob_a + r_ba$win_prob_b) / 2
     score_a <- (r_ab$pred_score_a + r_ba$pred_score_b) / 2
     score_b <- (r_ab$pred_score_b + r_ba$pred_score_a) / 2
   }
   
   result <- list(
+    pred_score_a = score_a,
+    pred_score_b = score_b,
     win_prob_a   = wp_a,
     win_prob_b   = 1 - wp_a,
-    pred_score_a = score_a,
-    pred_score_b = score_b
+    margin       = score_a - score_b
   )
   
   kenpom_pred <- tryCatch({
