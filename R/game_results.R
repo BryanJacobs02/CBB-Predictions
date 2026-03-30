@@ -469,6 +469,7 @@ build_name_crosswalk <- function(kenpom_names, espn_names) {
 }
 
 build_actual_training_labels <- function(graph,
+                                         snapshots,
                                          seasons = c(SEASON_YEAR - 2,
                                                      SEASON_YEAR - 1,
                                                      SEASON_YEAR)) {
@@ -477,13 +478,6 @@ build_actual_training_labels <- function(graph,
   idx        <- setNames(seq_along(team_names) - 1L, team_names)
   
   if (nrow(results) == 0) stop("No game results loaded.")
-  
-  # Show sample ESPN names to help debug matching
-  espn_sample <- head(sort(unique(c(results$home_team, results$away_team))), 20)
-  message("Sample ESPN team names: ", paste(espn_sample, collapse = ", "))
-  
-  kp_sample <- head(sort(team_names), 20)
-  message("Sample KenPom team names: ", paste(kp_sample, collapse = ", "))
   
   espn_teams <- unique(c(results$home_team, results$away_team))
   crosswalk  <- build_name_crosswalk(team_names, espn_teams)
@@ -494,12 +488,11 @@ build_actual_training_labels <- function(graph,
   message(glue("{n_matched} KenPom teams matched, {n_unmatched} unmatched."))
   
   if (n_matched < 50)
-    stop(glue("Only {n_matched} teams matched between KenPom and ESPN. ",
-              "Check team name formats above."))
+    stop(glue("Only {n_matched} teams matched. Check team name formats."))
   
   espn_to_kp <- setNames(matched$kenpom, matched$espn)
   
-  labels <- results |>
+  games <- results |>
     filter(home_team %in% names(espn_to_kp),
            away_team %in% names(espn_to_kp)) |>
     mutate(
@@ -507,17 +500,43 @@ build_actual_training_labels <- function(graph,
       kp_away = espn_to_kp[away_team]
     ) |>
     filter(kp_home %in% team_names, kp_away %in% team_names) |>
-    transmute(
-      team_a_idx = idx[kp_away],
-      team_b_idx = idx[kp_home],
-      winner     = as.integer(home_win),
-      score_a    = away_score,
-      score_b    = home_score,
-      game_date  = as.character(game_date),
-      neutral    = as.integer(neutral_site)
-    ) |>
-    filter(!is.na(team_a_idx), !is.na(team_b_idx))
+    arrange(game_date)
   
-  message(glue("Training labels: {nrow(labels)} games across {length(seasons)} seasons."))
+  message(glue("Building per-game feature vectors for {nrow(games)} games..."))
+  
+  # For each game, look up the nearest weekly snapshot and extract
+  # the feature vectors for both teams at that point in time
+  labels <- map_dfr(seq_len(nrow(games)), function(i) {
+    row       <- games[i, ]
+    snap_key  <- get_snapshot_for_date(row$game_date, snapshots)
+    
+    if (is.null(snap_key)) return(tibble())
+    
+    snap <- snapshots[[snap_key]]
+    numeric_cols <- snap |> select(where(is.numeric)) |> names()
+    
+    home_row <- snap |> filter(TeamName == row$kp_home)
+    away_row <- snap |> filter(TeamName == row$kp_away)
+    
+    if (nrow(home_row) == 0 || nrow(away_row) == 0) return(tibble())
+    
+    home_feats <- as.numeric(home_row |> select(all_of(numeric_cols)))
+    away_feats <- as.numeric(away_row |> select(all_of(numeric_cols)))
+    
+    tibble(
+      team_a_idx   = idx[row$kp_away],
+      team_b_idx   = idx[row$kp_home],
+      winner       = as.integer(row$home_win),
+      score_a      = row$away_score,
+      score_b      = row$home_score,
+      game_date    = as.character(row$game_date),
+      neutral      = as.integer(row$neutral_site),
+      # Store feature vectors as JSON strings for passing to Python
+      feats_a      = jsonlite::toJSON(away_feats),
+      feats_b      = jsonlite::toJSON(home_feats)
+    )
+  })
+  
+  message(glue("Training labels: {nrow(labels)} games with point-in-time features."))
   labels
 }

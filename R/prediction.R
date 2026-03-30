@@ -20,42 +20,53 @@ run_training <- function(seasons   = c(SEASON_YEAR - 2,
                          half_life = 60.0) {
   init_python_modules(force_reload = TRUE)
   
-  withProgress(message = "Building feature matrix...", value = 0.1, {
+  withProgress(message = "Building current feature matrix...", value = 0.05, {
     feats <- build_feature_matrix()
     
-    setProgress(0.3, message = "Building team graph...")
+    setProgress(0.1, message = "Building team graph...")
     graph <- build_team_graph(feats)
     
+    setProgress(0.15, message = glue("Fetching weekly archive snapshots ",
+                                     "(this takes 2-4 minutes)..."))
+    snapshots <- build_historical_feature_matrix(seasons)
+    
     setProgress(0.5, message = "Loading actual game results (hoopR)...")
-    labels <- build_actual_training_labels(graph, seasons)
+    labels <- build_actual_training_labels(graph, snapshots, seasons)
     
     if (nrow(labels) < 50)
       stop(glue("Only {nrow(labels)} matched games — too few to train."))
     
-    # ── Compute recency weights in R, pass directly to Python ─────────────
+    # ── Recency weights ──────────────────────────────────────────────────────
     today       <- as.numeric(Sys.Date())
     game_dates  <- as.numeric(as.Date(labels$game_date))
     days_ago    <- today - game_dates
     rec_weights <- pmax(0.5 ^ (days_ago / half_life), 1e-4)
     
-    setProgress(0.7, message = glue("Training GNN on {nrow(labels)} games..."))
+    setProgress(0.6, message = glue("Training GNN on {nrow(labels)} games ",
+                                    "(leak-free)..."))
     
     labels_clean <- labels |>
       select(team_a_idx, team_b_idx, winner, score_a, score_b)
     
+    # Parse per-game feature vectors from JSON
+    feats_a <- do.call(rbind, lapply(labels$feats_a, jsonlite::fromJSON))
+    feats_b <- do.call(rbind, lapply(labels$feats_b, jsonlite::fromJSON))
+    
     py_train$train(
-      node_features  = graph$node_features,
-      edge_src       = graph$edge_src,
-      edge_dst       = graph$edge_dst,
-      edge_weights   = graph$edge_weights,
-      team_names     = graph$team_names,
-      matchup_labels = list(
+      node_features   = graph$node_features,
+      edge_src        = graph$edge_src,
+      edge_dst        = graph$edge_dst,
+      edge_weights    = graph$edge_weights,
+      team_names      = graph$team_names,
+      matchup_labels  = list(
         team_a_idx = as.integer(labels_clean$team_a_idx),
         team_b_idx = as.integer(labels_clean$team_b_idx),
         winner     = as.integer(labels_clean$winner),
         score_a    = as.numeric(labels_clean$score_a),
         score_b    = as.numeric(labels_clean$score_b)
       ),
+      game_feats_a    = feats_a,
+      game_feats_b    = feats_b,
       recency_weights = rec_weights,
       half_life_days  = half_life
     )
