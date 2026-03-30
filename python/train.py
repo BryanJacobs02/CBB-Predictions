@@ -52,6 +52,15 @@ def train(node_features, edge_src, edge_dst, edge_weights,
     edge_attr  = torch.tensor(list(edge_weights), dtype=torch.float)
     in_channels = x.shape[1]
 
+    # ── Convert column-oriented dict (from R) to list of row dicts ───────────
+    if isinstance(matchup_labels, dict):
+        keys = list(matchup_labels.keys())
+        n_rows = len(matchup_labels[keys[0]])
+        matchup_labels = [
+            {k: matchup_labels[k][i] for k in keys}
+            for i in range(n_rows)
+        ]
+
     # ── Recency weights ───────────────────────────────────────────────────────
     game_dates = [str(row["game_date"]) for row in matchup_labels]
     rec_weights = compute_recency_weights(game_dates, half_life_days)
