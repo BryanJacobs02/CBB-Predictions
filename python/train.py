@@ -80,7 +80,7 @@ def evaluate(gnn, pred, records, game_feats_a, game_feats_b,
 def train(node_features, edge_src, edge_dst, edge_weights,
           team_names, matchup_labels, game_feats_a, game_feats_b,
           recency_weights, half_life_days=60.0, epochs=500, lr=5e-4,
-          test_fraction=0.2, save_dir=None):
+          test_fraction=0.2, full_train=True, save_dir=None):
 
     if save_dir is None:
         save_dir = _DEFAULT_SAVE_DIR
@@ -101,21 +101,34 @@ def train(node_features, edge_src, edge_dst, edge_weights,
 
     print(f"DEBUG: in_channels={in_channels}, feat_dim={feat_dim}")
 
-    # ── Chronological train/test split ────────────────────────────────────────
+    # ── Train/test split ──────────────────────────────────────────────────────────
     n_total = len(records)
     n_train = int(n_total * (1 - test_fraction))
 
-    train_records = records[:n_train]
-    test_records  = records[n_train:]
-    train_fa      = fa_all[:n_train]
-    train_fb      = fb_all[:n_train]
-    test_fa       = fa_all[n_train:]
-    test_fb       = fb_all[n_train:]
-    train_weights = torch.tensor(rec_weights[:n_train], dtype=torch.float)
-
-    print(f"Train: {len(train_records)} games | "
-          f"Test: {len(test_records)} games | "
+    if full_train:
+        # Use all data for training — deploy mode
+        train_records = records
+        train_fa      = fa_all
+        train_fb      = fb_all
+        train_weights = torch.tensor(rec_weights, dtype=torch.float)
+        test_records  = records[n_train:]  # keep for evaluation reference
+        test_fa       = fa_all[n_train:]
+        test_fb       = fb_all[n_train:]
+        print(f"FULL TRAIN mode: {len(train_records)} games | "
+          f"Benchmark test: {len(test_records)} games | "
           f"half-life={half_life_days}d | epochs={epochs}")
+    else:
+        train_records = records[:n_train]
+        test_records  = records[n_train:]
+        train_fa      = fa_all[:n_train]
+        train_fb      = fb_all[:n_train]
+        test_fa       = fa_all[n_train:]
+        test_fb       = fb_all[n_train:]
+        train_weights = torch.tensor(rec_weights[:n_train], dtype=torch.float)
+        print(f"Train: {len(train_records)} games | "
+              f"Test: {len(test_records)} games | "
+              f"half-life={half_life_days}d | epochs={epochs}")
+
     print(f"Saving to: {save_dir}")
 
     # ── Models ────────────────────────────────────────────────────────────────

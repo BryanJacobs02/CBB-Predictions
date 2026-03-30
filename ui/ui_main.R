@@ -68,6 +68,9 @@ ui <- dashboardPage(
                     ),
                     column(4,
                            br(),
+                           checkboxInput("full_train", 
+                                         "Full train mode (use all data, deploy-ready)",
+                                         value = TRUE),
                            actionButton("train_btn", "Train Model",
                                         class = "btn-warning btn-block", icon = icon("cogs"))
                     )

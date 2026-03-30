@@ -161,7 +161,7 @@ server <- function(input, output, session) {
     )
     
     tryCatch({
-      run_training(seasons = seasons, half_life = half_life)
+      run_training(seasons = seasons, half_life = half_life, full_train = input$full_train)
       output$train_log <- renderText(
         glue("✅ Training complete.\n",
              "Seasons: {paste(seasons, collapse=', ')}\n",

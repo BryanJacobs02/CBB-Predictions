@@ -17,7 +17,8 @@ for mod in ['train', 'predict', 'gnn_model']:
 run_training <- function(seasons   = c(SEASON_YEAR - 2,
                                        SEASON_YEAR - 1,
                                        SEASON_YEAR),
-                         half_life = 60.0) {
+                         half_life = 60.0,
+                         full_train = TRUE) {
   init_python_modules(force_reload = TRUE)
   
   withProgress(message = "Building current feature matrix...", value = 0.05, {
@@ -69,7 +70,8 @@ run_training <- function(seasons   = c(SEASON_YEAR - 2,
       game_feats_a    = feats_a,
       game_feats_b    = feats_b,
       recency_weights = rec_weights,
-      half_life_days  = half_life
+      half_life_days  = half_life,
+      full_train      = full_train
     )
     
     setProgress(1.0, message = "Done.")
