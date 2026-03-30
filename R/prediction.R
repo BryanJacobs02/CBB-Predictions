@@ -1,8 +1,15 @@
 py_train   <- NULL
 py_predict <- NULL
 
-init_python_modules <- function() {
-  if (is.null(py_train)) {
+init_python_modules <- function(force_reload = FALSE) {
+  if (is.null(py_train) || force_reload) {
+    # Force Python to reload the module fresh from disk
+    py_run_string("import importlib, sys")
+    py_run_string("
+for mod in ['train', 'predict', 'gnn_model']:
+    if mod in sys.modules:
+        del sys.modules[mod]
+")
     py_train   <<- import_from_path("train",   path = "python")
     py_predict <<- import_from_path("predict", path = "python")
   }
@@ -12,7 +19,7 @@ run_training <- function(seasons   = c(SEASON_YEAR - 2,
                                        SEASON_YEAR - 1,
                                        SEASON_YEAR),
                          half_life = 60.0) {
-  init_python_modules()
+  init_python_modules(force_reload = TRUE)
   
   withProgress(message = "Building feature matrix...", value = 0.1, {
     feats <- build_feature_matrix()
