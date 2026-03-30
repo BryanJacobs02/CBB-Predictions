@@ -152,7 +152,8 @@ build_historical_feature_matrix <- function(seasons = c(SEASON_YEAR - 2,
       
       # Join with static features
       snap_df <- static_df |>
-        left_join(momentum, by = "TeamName") |>
+        distinct(TeamName, .keep_all = TRUE) |>
+        left_join(momentum |> distinct(TeamName, .keep_all = TRUE), by = "TeamName") |>
         rename(
           AdjEM    = AdjEM_snap,
           AdjOE    = AdjOE_snap,
@@ -170,6 +171,7 @@ build_historical_feature_matrix <- function(seasons = c(SEASON_YEAR - 2,
         })) |>
         replace_na(as.list(setNames(rep(0, length(numeric_cols)), numeric_cols)))
       
+      snap_df <- snap_df |> distinct(TeamName, .keep_all = TRUE)
       snapshots[[d]] <- snap_df
       if (i %% 10 == 0)
         message(glue("  {i}/{length(dates)} snapshots fetched..."))

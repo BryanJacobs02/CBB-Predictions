@@ -524,8 +524,8 @@ build_actual_training_labels <- function(graph,
       is.numeric(col) && !is.list(col)
     })]
     
-    home_row <- snap |> filter(TeamName == row$kp_home)
-    away_row <- snap |> filter(TeamName == row$kp_away)
+    home_row <- snap |> filter(TeamName == row$kp_home) |> slice(1)
+    away_row <- snap |> filter(TeamName == row$kp_away) |> slice(1)
     
     if (nrow(home_row) == 0 || nrow(away_row) == 0) return(tibble())
     
