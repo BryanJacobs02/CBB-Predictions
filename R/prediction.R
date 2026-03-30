@@ -88,16 +88,29 @@ predict_game <- function(team_a, team_b) {
     stop(glue("Team not found: '{team_a}' or '{team_b}'"))
   
   # Extract current feature vectors for both teams
-  numeric_cols <- feats |> select(where(is.numeric)) |> names()
+  numeric_cols <- feats |>
+    select(where(~ is.numeric(.) && !is.list(.))) |>
+    names()
   
-  team_a_row <- feats |> filter(TeamName == team_a)
-  team_b_row <- feats |> filter(TeamName == team_b)
+  team_a_row <- feats |> filter(TeamName == team_a) |> slice(1)
+  team_b_row <- feats |> filter(TeamName == team_b) |> slice(1)
   
   if (nrow(team_a_row) == 0 || nrow(team_b_row) == 0)
     stop(glue("Team features not found for '{team_a}' or '{team_b}'"))
   
-  feat_vec_a <- as.numeric(team_a_row |> select(all_of(numeric_cols)))
-  feat_vec_b <- as.numeric(team_b_row |> select(all_of(numeric_cols)))
+  safe_numeric <- function(df_row, cols) {
+    vals <- sapply(cols, function(col) {
+      val <- df_row[[col]]
+      if (is.list(val)) return(0)
+      v <- suppressWarnings(as.numeric(val))
+      if (length(v) != 1 || is.na(v)) return(0)
+      v
+    })
+    vals
+  }
+  
+  feat_vec_a <- safe_numeric(team_a_row, numeric_cols)
+  feat_vec_b <- safe_numeric(team_b_row, numeric_cols)
   
   result <- py_predict$predict_matchup(
     node_features = graph$node_features,
