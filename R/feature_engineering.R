@@ -32,26 +32,34 @@ build_static_features_for_season <- function(year) {
   conf_rtg <- get_conf_ratings_season(year)
   teams    <- get_teams_season(year) |> select(TeamName, ConfShort)
   
-  tibble(TeamName = teams$TeamName) |>
+  tibble(TeamName = teams$TeamName |> unique()) |>
     left_join(
       ff |> select(TeamName, eFG_Pct, TO_Pct, OR_Pct, FT_Rate,
-                   DeFG_Pct, DTO_Pct, DOR_Pct, DFT_Rate),
+                   DeFG_Pct, DTO_Pct, DOR_Pct, DFT_Rate) |>
+        distinct(TeamName, .keep_all = TRUE),
       by = "TeamName") |>
     left_join(
       misc |> select(TeamName, FG3Pct, FG2Pct, FTPct, BlockPct,
                      StlRate, ARate, F3GRate,
-                     OppFG3Pct, OppBlockPct, OppStlRate),
+                     OppFG3Pct, OppBlockPct, OppStlRate) |>
+        distinct(TeamName, .keep_all = TRUE),
       by = "TeamName") |>
     left_join(
-      height |> select(TeamName, AvgHgt, HgtEff, Exp, Bench, Continuity),
+      height |> select(TeamName, AvgHgt, HgtEff, Exp, Bench, Continuity) |>
+        distinct(TeamName, .keep_all = TRUE),
       by = "TeamName") |>
     left_join(
       pdist |> select(TeamName, OffFt, OffFg2, OffFg3,
-                      DefFt, DefFg2, DefFg3),
+                      DefFt, DefFg2, DefFg3) |>
+        distinct(TeamName, .keep_all = TRUE),
       by = "TeamName") |>
-    left_join(teams, by = "TeamName") |>
     left_join(
-      conf_rtg |> select(ConfShort, Rating) |> rename(ConfRating = Rating),
+      teams |> distinct(TeamName, .keep_all = TRUE),
+      by = "TeamName") |>
+    left_join(
+      conf_rtg |> select(ConfShort, Rating) |>
+        distinct(ConfShort, .keep_all = TRUE) |>
+        rename(ConfRating = Rating),
       by = "ConfShort") |>
     select(-ConfShort) |>
     distinct(TeamName, .keep_all = TRUE)
