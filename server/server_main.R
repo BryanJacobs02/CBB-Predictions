@@ -80,6 +80,48 @@ server <- function(input, output, session) {
       )
   })
   
+  output$stat_comparison <- renderPlotly({
+    req(input$team_a, input$team_b)
+    all_ratings <- get_ratings()
+    
+    ratings <- all_ratings |>
+      filter(TeamName %in% c(input$team_a, input$team_b)) |>
+      group_by(TeamName) |>
+      slice(1) |>
+      ungroup() |>
+      select(TeamName, AdjOE, AdjDE, AdjTempo, AdjEM)
+    
+    numeric_cols <- c("AdjOE", "AdjDE", "AdjTempo", "AdjEM")
+    
+    ratings_pct <- ratings |>
+      mutate(AdjDE = -AdjDE) |>
+      mutate(across(all_of(numeric_cols), function(col_val) {
+        all_vals <- all_ratings[[cur_column()]]
+        round(100 * rank(col_val, ties.method = "average") /
+                length(all_vals))
+      })) |>
+      rename(
+        `Off. Efficiency` = AdjOE,
+        `Def. Efficiency` = AdjDE,
+        `Tempo`           = AdjTempo,
+        `Overall (AdjEM)` = AdjEM
+      )
+    
+    stats_long <- ratings_pct |>
+      tidyr::pivot_longer(-TeamName, names_to = "Stat")
+    
+    plot_ly(stats_long, x = ~Stat, y = ~value, color = ~TeamName,
+            type = "bar", barmode = "group",
+            text = ~glue("{value}th percentile"),
+            hoverinfo = "text+x+name") |>
+      layout(
+        yaxis = list(title = "Percentile rank (100 = best)",
+                     range = c(0, 100)),
+        xaxis = list(title = ""),
+        legend = list(orientation = "h", y = -0.2)
+      )
+  })
+  
   # ── Training ───────────────────────────────────────────────────────────────
   output$train_log <- renderText("Click 'Train Model' to begin.")
   
