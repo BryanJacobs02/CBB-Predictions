@@ -1,0 +1,4 @@
+.result-card { transition: box-shadow 0.2s; }
+.result-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
+.content-wrapper { background: #f4f6f9; }
+.alert-info { border-radius: 4px; padding: 10px 14px; }
