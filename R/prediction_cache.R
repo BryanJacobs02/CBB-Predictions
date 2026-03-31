@@ -169,3 +169,75 @@ lookup_cached_prediction <- function(team_a, team_b, location, cache) {
   if (location == "neutral") return(result$neutral)
   NULL
 }
+
+deploy_lockbot <- function(app_name = "lockbot",
+                           retrain  = FALSE,
+                           seasons  = c(SEASON_YEAR - 2,
+                                        SEASON_YEAR - 1,
+                                        SEASON_YEAR),
+                           half_life = 60.0) {
+  
+  message("═══════════════════════════════════════")
+  message("         LockBot Deployment Tool       ")
+  message("═══════════════════════════════════════")
+  
+  # ── Step 1: Optionally retrain ─────────────────────────────────────────────
+  if (retrain) {
+    message("\n[1/3] Retraining model...")
+    message("      Seasons: ", paste(seasons, collapse = ", "))
+    message("      Half-life: ", half_life, " days")
+    message("      This will take ~10 minutes.\n")
+    
+    tryCatch({
+      run_training(seasons = seasons, half_life = half_life, full_train = TRUE)
+      message("✅ Training complete.")
+    }, error = function(e) {
+      stop(glue("Training failed: {e$message}"))
+    })
+  } else {
+    message("\n[1/3] Skipping retraining (using existing model weights).")
+  }
+  
+  # ── Step 2: Generate prediction cache ─────────────────────────────────────
+  message("\n[2/3] Generating prediction cache...")
+  message("      This will take 20-30 minutes for all D1 matchups.\n")
+  
+  tryCatch({
+    PREDICTION_CACHE <<- generate_prediction_cache()
+    n <- length(PREDICTION_CACHE)
+    message(glue("✅ Cache complete: {n} matchups saved to data/predictions_cache.rds"))
+  }, error = function(e) {
+    stop(glue("Cache generation failed: {e$message}"))
+  })
+  
+  # ── Step 3: Deploy to shinyapps.io ────────────────────────────────────────
+  message("\n[3/3] Deploying to shinyapps.io...")
+  message(glue("      App name: {app_name}"))
+  message("      URL will be: https://bryanjacobs.shinyapps.io/", app_name, "\n")
+  
+  tryCatch({
+    rsconnect::deployApp(
+      appDir   = ".",
+      appName  = app_name,
+      appFiles = c(
+        "app.R", "global.R", "packages.R",
+        ".Renviron",
+        "R/",
+        "ui/",
+        "server/",
+        "www/",
+        "data/models/",
+        "data/predictions_cache.rds"
+      ),
+      forceUpdate = TRUE
+    )
+    message("\n✅ Deployment complete!")
+    message(glue("   Live at: https://bryanjacobs.shinyapps.io/{app_name}"))
+  }, error = function(e) {
+    stop(glue("Deployment failed: {e$message}"))
+  })
+  
+  message("\n═══════════════════════════════════════")
+  message("              All done! 🏀              ")
+  message("═══════════════════════════════════════")
+}
