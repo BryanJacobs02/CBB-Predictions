@@ -170,11 +170,11 @@ lookup_cached_prediction <- function(team_a, team_b, location, cache) {
   NULL
 }
 
-deploy_lockbot <- function(app_name = "lockbot",
-                           retrain  = FALSE,
-                           seasons  = c(SEASON_YEAR - 2,
-                                        SEASON_YEAR - 1,
-                                        SEASON_YEAR),
+deploy_lockbot <- function(app_name  = "lockbot",
+                           retrain   = FALSE,
+                           seasons   = c(SEASON_YEAR - 2,
+                                         SEASON_YEAR - 1,
+                                         SEASON_YEAR),
                            half_life = 60.0) {
   
   message("═══════════════════════════════════════")
@@ -194,26 +194,28 @@ deploy_lockbot <- function(app_name = "lockbot",
     }, error = function(e) {
       stop(glue("Training failed: {e$message}"))
     })
+    
+    # ── Step 2: Regenerate cache after retraining ───────────────────────────
+    message("\n[2/3] Regenerating prediction cache...")
+    message("      This will take 20-30 minutes for all D1 matchups.\n")
+    
+    tryCatch({
+      PREDICTION_CACHE <<- generate_prediction_cache()
+      n <- length(PREDICTION_CACHE)
+      message(glue("✅ Cache complete: {n} matchups saved to data/predictions_cache.rds"))
+    }, error = function(e) {
+      stop(glue("Cache generation failed: {e$message}"))
+    })
+    
   } else {
-    message("\n[1/3] Skipping retraining (using existing model weights).")
+    message("\n[1/3] Skipping retraining — using existing model weights.")
+    message("[2/3] Skipping cache generation — existing cache is still valid.")
   }
-  
-  # ── Step 2: Generate prediction cache ─────────────────────────────────────
-  message("\n[2/3] Generating prediction cache...")
-  message("      This will take 20-30 minutes for all D1 matchups.\n")
-  
-  tryCatch({
-    PREDICTION_CACHE <<- generate_prediction_cache()
-    n <- length(PREDICTION_CACHE)
-    message(glue("✅ Cache complete: {n} matchups saved to data/predictions_cache.rds"))
-  }, error = function(e) {
-    stop(glue("Cache generation failed: {e$message}"))
-  })
   
   # ── Step 3: Deploy to shinyapps.io ────────────────────────────────────────
   message("\n[3/3] Deploying to shinyapps.io...")
   message(glue("      App name: {app_name}"))
-  message("      URL will be: https://bryanjacobs.shinyapps.io/", app_name, "\n")
+  message("      URL: https://bryanjacobs.shinyapps.io/", app_name, "\n")
   
   tryCatch({
     rsconnect::deployApp(
