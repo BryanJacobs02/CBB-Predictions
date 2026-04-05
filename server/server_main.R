@@ -285,9 +285,6 @@ server <- function(input, output, session) {
              "This will take 20-30 minutes for all D1 matchups.")
       )
       
-      # Generate cache after training
-      PREDICTION_CACHE <<- generate_prediction_cache()
-      
       output$train_log <- renderText(
         glue("✅ Training and cache complete.\n",
              "Seasons: {paste(seasons, collapse=', ')}\n",
