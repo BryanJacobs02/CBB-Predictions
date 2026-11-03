@@ -41,6 +41,7 @@ source("R/game_results.R")
 source("R/prediction_cache.R")
 source("R/prediction_cache_v2.R")
 source("R/betting_v2.R")
+source("R/picks.R")
 source("R/plots_v2.R")
 source("R/team_data.R")
 source("ui/ui_main.R")
@@ -58,5 +59,6 @@ if (IS_LOCAL) {
 # ── Load prediction cache ─────────────────────────────────────────────────────
 PREDICTION_CACHE    <- load_prediction_cache()
 PREDICTION_CACHE_V2 <- load_prediction_cache_v2()
+PICKS_STATE         <- new.env()      # shared across sessions: latest picks + when they were built
 IS_DEPLOYED      <- !IS_LOCAL
 message(glue("Mode: {if (IS_DEPLOYED) 'DEPLOYED (cache)' else 'LOCAL (live Python)'}"))

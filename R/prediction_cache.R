@@ -233,7 +233,8 @@ deploy_lockbot <- function(app_name  = "lockbot",
         "data/predictions_v2.csv",
         "data/predictions_v2.meta.json",
         "data/eval_v2.json",
-        "data/picks.csv"
+        "data/picks.csv",
+        "data/team_map.csv"
       ),
       forceUpdate = TRUE
     )

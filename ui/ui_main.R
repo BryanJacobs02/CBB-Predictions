@@ -13,12 +13,12 @@ ui <- dashboardPage(
   ),
   
   dashboardSidebar(
-    do.call(sidebarMenu, Filter(Negate(is.null), list(
+    do.call(sidebarMenu, c(list(id = "tabs"), Filter(Negate(is.null), list(
       menuItem("Predict Matchup",  tabName = "predict", icon = icon("basketball-ball")),
       menuItem("Today's Picks",    tabName = "picks",   icon = icon("list-ol")),
       menuItem("Team Stats",       tabName = "stats",   icon = icon("table")),
       menuItem("Model Evaluation", tabName = "eval",    icon = icon("chart-line"))
-    )))
+    ))))
   ),
   
   dashboardBody(
@@ -102,7 +102,11 @@ ui <- dashboardPage(
       # ── Today's picks ────────────────────────────────────────────────────────
       tabItem("picks",
               box(width = 12, title = "Today's Picks", status = "success",
-                  uiOutput("picks_header"),
+                  fluidRow(
+                    column(3, actionButton("refresh_picks", "Refresh lines now",
+                                           class = "btn-primary btn-block", icon = icon("sync"))),
+                    column(9, uiOutput("picks_header"))
+                  ),
                   checkboxInput("picks_only_bets", "Only show games with a BET or LEAN", value = FALSE),
                   DTOutput("picks_table"),
                   p(class = "text-muted", style = "font-size: 0.78rem; margin-top: 10px;",

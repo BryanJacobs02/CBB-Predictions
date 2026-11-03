@@ -234,23 +234,51 @@ server <- function(input, output, session) {
     })
   })
   
-  # ── Today's picks (data/picks.csv, written by scripts/make_picks.R) ──────────
-  picks_data <- reactive({
-    path <- "data/picks.csv"
-    req(file.exists(path))
-    read.csv(path, stringsAsFactors = FALSE)
+  # ── Today's picks: built live from ESPN lines; shared 10-minute memo so many viewers don't hammer ESPN ──
+  picks_rv    <- reactiveVal(NULL)
+  picks_error <- reactiveVal(NULL)
+  
+  load_picks <- function(force = FALSE) {
+    fresh <- !is.null(PICKS_STATE$data) && difftime(Sys.time(), PICKS_STATE$time, units = "mins") < 10
+    if (fresh && !force) { picks_rv(PICKS_STATE$data); picks_error(NULL); return(invisible()) }
+    withProgress(message = "Pulling today's lines from ESPN...", value = 0, {
+      res <- tryCatch(
+        build_picks(progress = function(i, n) setProgress(i / n, detail = paste(i, "of", n, "games"))),
+        error = function(e) e)
+    })
+    if (inherits(res, "error")) {
+      picks_error(conditionMessage(res))
+      # fall back to the last saved file, if there is one
+      if (is.null(picks_rv()) && file.exists("data/picks.csv")) picks_rv(read.csv("data/picks.csv", stringsAsFactors = FALSE))
+    } else {
+      PICKS_STATE$data <- res; PICKS_STATE$time <- Sys.time()
+      picks_rv(res); picks_error(NULL)
+    }
+  }
+  
+  # first time the tab is opened in a session, and whenever the button is pressed
+  observeEvent(input$tabs, {
+    if (identical(input$tabs, "picks") && is.null(picks_rv())) load_picks()
   })
+  observeEvent(input$refresh_picks, load_picks(force = TRUE))
+  
+  picks_data <- reactive({ req(picks_rv()); picks_rv() })
   
   output$picks_header <- renderUI({
-    if (!file.exists("data/picks.csv"))
-      return(div(class = "alert alert-secondary",
-                 "No picks yet. Run  Rscript scripts/make_picks.R  and redeploy."))
-    d <- picks_data()
-    p(class = "text-muted",
-      glue("Lines pulled {d$generated_at[1]}. {nrow(d)} games; ",
-           "{sum(d$spread_call == 'BET', na.rm = TRUE)} spread BETs, ",
-           "{sum(d$total_call == 'BET', na.rm = TRUE)} total BETs. ",
-           "Lines move: if this is more than a few hours old, check your book before betting."))
+    err <- picks_error()
+    d <- picks_rv()
+    tagList(
+      if (!is.null(err))
+        div(class = "alert alert-warning", style = "padding: 6px 10px; margin-bottom: 6px;",
+            "Could not refresh: ", err, if (!is.null(d)) " Showing the last saved list."),
+      if (!is.null(d))
+        p(class = "text-muted", style = "margin: 6px 0;",
+          glue("Lines pulled {d$generated_at[1]}. {nrow(d)} games; ",
+               "{sum(d$spread_call == 'BET', na.rm = TRUE)} spread BETs, ",
+               "{sum(d$total_call == 'BET', na.rm = TRUE)} total BETs. ",
+               "Lines move: always check your book before betting.")) else
+        p(class = "text-muted", style = "margin: 6px 0;", "Open this tab or press the button to pull today's lines.")
+    )
   })
   
   output$picks_table <- renderDT({
