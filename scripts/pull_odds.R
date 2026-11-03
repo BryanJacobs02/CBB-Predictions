@@ -12,9 +12,9 @@
 # and re-run; finished seasons are skipped automatically.
 # ─────────────────────────────────────────────────────────────────────────────
 
-SEASONS    <- 2026            # 2026 = the 2025-26 season
+SEASONS    <- 2025:2026            # 2026 = the 2025-26 season
 PAUSE_SEC  <- 0.3
-RETRY_MISSING <- FALSE   # TRUE = re-query games previously recorded as "no odds"
+RETRY_MISSING <- TRUE   # TRUE = re-query games previously recorded as "no odds"
                          # (use after a run where a block of games came back empty)
 EXPORT_DIR <- "lockbot_export"
 OUT        <- "lockbot_odds"
