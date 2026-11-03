@@ -433,6 +433,3 @@ h1, h2, h3, h4, h5, h6, p, label, .text-muted {
 .bet-note { font-size: 0.78rem; color: var(--text-secondary); }
 
 .pick-price { font-size: 0.95rem; font-weight: 400; color: var(--text-secondary); }
-
-/* Logo block is 1px shorter than the top bar; match it so the bottom lines meet */
-.main-header .logo { height: 51px !important; }
