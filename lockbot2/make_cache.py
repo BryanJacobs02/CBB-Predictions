@@ -1,6 +1,6 @@
 """Lockbot 2.0 prediction cache: margin / total / win probability for every D1 matchup.
 
-Trains the lightgbm+box margin and total models on every completed game in the data table,
+Trains the ridge+LightGBM blend (with box-score form features) for margin and total on every completed game in the data table,
 describes each team by its latest point-in-time state (newest KenPom snapshot, box-score form
 through the last game, schedule context), and scores every ordered pair for home and neutral.
 
@@ -19,6 +19,10 @@ import lightgbm as lgb
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import RidgeCV
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 sys.path.insert(0, str(Path(__file__).parent))
 import box_features as bf  # noqa: E402
@@ -30,10 +34,23 @@ KW = dict(n_estimators=500, learning_rate=0.02, num_leaves=12, min_child_samples
 RATING = ["AdjEM", "AdjOE", "AdjDE", "AdjTempo"]
 
 
+class Blend:
+    """Ridge + LightGBM blend on the same features. Weight is on ridge."""
+    def __init__(self, w_ridge, y, tr):
+        X = features(tr, True)
+        self.w = w_ridge
+        self.ridge = make_pipeline(SimpleImputer(strategy="median"), StandardScaler(),
+                                   RidgeCV(alphas=np.logspace(-1, 3, 12))).fit(X, tr[y])
+        self.gbm = lgb.LGBMRegressor(**KW).fit(X, tr[y])
+
+    def predict(self, X):
+        return self.w * self.ridge.predict(X) + (1 - self.w) * self.gbm.predict(X)
+
+
 def fit(tr):
-    X = features(tr, True)
-    return (lgb.LGBMRegressor(**KW).fit(X, tr.margin),
-            lgb.LGBMRegressor(**KW).fit(X, tr.total))
+    """Final models. Margin: 50/50 blend. Total: 70% ridge / 30% LightGBM.
+    (Walk-forward 2024-26: blends beat either model alone by ~0.02 pts MAE; small but consistent.)"""
+    return Blend(0.5, "margin", tr), Blend(0.7, "total", tr)
 
 
 def current_box_state(box_dir, season):

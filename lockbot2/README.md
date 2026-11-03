@@ -45,3 +45,12 @@ Confirming it needs more seasons of closing lines.
 Download box scores:
     for y in 2022 2023 2024 2025 2026; do curl -sSL -o team_box_$y.parquet \
       https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mens_college_basketball_team_boxscores/team_box_$y.parquet; done
+
+## Shipped model: ridge + LightGBM blend
+
+`make_cache.py` blends ridge and LightGBM on the same features (margin 50/50, total 70% ridge).
+Walk-forward 2024-26 averages: margin MAE 9.02 (ridge 9.04, LightGBM 9.06), total MAE ~13.2.
+Gains over either single model are ~0.02 pts: consistent but small. On the 4,766 2026 games with a
+DraftKings line: margin MAE 8.985 vs DraftKings 8.863 vs KenPom 8.987; total MAE 13.48 vs 13.32 vs 13.69.
+Model-minus-market weight (regression on the close): margin 0.13 (se 0.08), total 0.05 (se 0.09).
+`eval_blend.py` writes `data/eval_v2.json`, which the app's Model Evaluation tab reads.

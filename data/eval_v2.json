@@ -2,30 +2,30 @@
  "walk_forward": [
   {
    "season": 2024,
-   "model": "lightgbm+box",
+   "model": "blend",
    "n": 5724,
-   "margin_MAE": 9.006,
-   "margin_RMSE": 11.366,
-   "winner_acc%": 72.2,
-   "total_MAE": 13.27
+   "margin_MAE": 8.981,
+   "margin_RMSE": 11.345,
+   "winner_acc%": 71.9,
+   "total_MAE": 13.119
   },
   {
    "season": 2025,
-   "model": "lightgbm+box",
+   "model": "blend",
    "n": 5748,
-   "margin_MAE": 8.993,
-   "margin_RMSE": 11.456,
-   "winner_acc%": 72.3,
-   "total_MAE": 13.025
+   "margin_MAE": 8.949,
+   "margin_RMSE": 11.408,
+   "winner_acc%": 72.5,
+   "total_MAE": 12.928
   },
   {
    "season": 2026,
-   "model": "lightgbm+box",
+   "model": "blend",
    "n": 5749,
-   "margin_MAE": 9.166,
-   "margin_RMSE": 11.574,
-   "winner_acc%": 72.2,
-   "total_MAE": 13.707
+   "margin_MAE": 9.139,
+   "margin_RMSE": 11.528,
+   "winner_acc%": 71.9,
+   "total_MAE": 13.644
   }
  ],
  "same_games_2026": [
@@ -39,62 +39,32 @@
    "model": "KenPom fanmatch",
    "margin_MAE": 8.987,
    "winner_acc%": 70.3,
-   "total_MAE": 13.704
+   "total_MAE": 13.69
   },
   {
-   "model": "Lockbot2 formula",
-   "margin_MAE": 9.029,
-   "winner_acc%": 70.3,
-   "total_MAE": 13.704
-  },
-  {
-   "model": "Lockbot2 ridge",
-   "margin_MAE": 9.009,
+   "model": "Lockbot 2.0 blend",
+   "margin_MAE": 8.985,
    "winner_acc%": 70.1,
-   "total_MAE": 13.63
-  },
-  {
-   "model": "Lockbot2 lightgbm",
-   "margin_MAE": 9.057,
-   "winner_acc%": 70.1,
-   "total_MAE": 13.681
-  },
-  {
-   "model": "Lockbot2 ridge+box",
-   "margin_MAE": 8.984,
-   "winner_acc%": 70.2,
-   "total_MAE": 13.501
-  },
-  {
-   "model": "Lockbot2 lightgbm+box",
-   "margin_MAE": 9.01,
-   "winner_acc%": 70.5,
-   "total_MAE": 13.556
+   "total_MAE": 13.484
   }
  ],
  "winprob_2026": {
-  "sigma": 11.45417923666544,
-  "logistic_scale": 6.315019986513981,
+  "sigma": 11.521199495050105,
   "table": [
    {
     "source": "DraftKings (de-vigged ML)",
-    "Brier": 0.1866,
-    "LogLoss": 0.5487
+    "Brier": 0.1867,
+    "LogLoss": 0.5489
    },
    {
     "source": "KenPom fanmatch",
-    "Brier": 0.1902,
-    "LogLoss": 0.5567
+    "Brier": 0.1875,
+    "LogLoss": 0.5543
    },
    {
-    "source": "Lockbot2 lightgbm+box, calibrated",
-    "Brier": 0.1909,
-    "LogLoss": 0.5586
-   },
-   {
-    "source": "Lockbot2 lightgbm+box, 1.0-style /7.0",
-    "Brier": 0.191,
-    "LogLoss": 0.559
+    "source": "Lockbot 2.0 blend, calibrated",
+    "Brier": 0.1877,
+    "LogLoss": 0.5493
    }
   ]
  },
