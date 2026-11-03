@@ -22,7 +22,7 @@ from sklearn.preprocessing import StandardScaler
 TEST_SEASONS = [2024, 2025, 2026]
 
 
-def features(d):
+def features(d, box=False):
     X = pd.DataFrame(index=d.index)
     for c in ["AdjEM", "AdjOE", "AdjDE", "AdjTempo"]:
         X[f"{c}_h"], X[f"{c}_a"] = d[f"{c}_h_eff"], d[f"{c}_a_eff"]
@@ -36,6 +36,19 @@ def features(d):
         X[c] = d[c]
     X["prior_em_h"], X["prior_em_a"] = d.prior_AdjEM_h, d.prior_AdjEM_a
     X["lg_total"] = d.lg_total_30d
+    if box:
+        stats = ["off_eff", "def_eff", "pace", "efg", "tov", "orb", "ftr", "tpar", "def_efg", "def_tov", "drb", "def_ftr"]
+        for s_ in stats:
+            X[f"bh_{s_}"], X[f"ba_{s_}"] = d[f"bh_{s_}_ewm"], d[f"ba_{s_}_ewm"]
+        X["x_efg_h"] = (X.bh_efg + X.ba_def_efg) / 2
+        X["x_efg_a"] = (X.ba_efg + X.bh_def_efg) / 2
+        X["x_tov_h"] = (X.bh_tov + X.ba_def_tov) / 2
+        X["x_tov_a"] = (X.ba_tov + X.bh_def_tov) / 2
+        X["x_orb_h"] = (X.bh_orb + (1 - X.ba_drb)) / 2
+        X["x_orb_a"] = (X.ba_orb + (1 - X.bh_drb)) / 2
+        X["x_pace"] = (X.bh_pace + X.ba_pace) / 2
+        X["x_eff_h"] = (X.bh_off_eff + X.ba_def_eff) / 2
+        X["x_eff_a"] = (X.ba_off_eff + X.bh_def_eff) / 2
     X["doy"] = (pd.to_datetime(d.game_date) - pd.to_datetime((d.season - 1).astype(str) + "-11-01")).dt.days
     return X
 
@@ -61,6 +74,14 @@ def fit_predict(tr, te):
     gm = lgb.LGBMRegressor(**kw).fit(Xtr, tr.margin)
     gt = lgb.LGBMRegressor(**kw).fit(Xtr, tr.total)
     out["lightgbm"] = (gm.predict(Xte), gt.predict(Xte))
+    if "bh_efg_ewm" in tr.columns:             # same models + rolling box-score form
+        Btr, Bte = features(tr, True), features(te, True)
+        rm2 = make_pipeline(SimpleImputer(strategy="median"), StandardScaler(), RidgeCV(alphas=np.logspace(-1, 3, 12)))
+        rt2 = make_pipeline(SimpleImputer(strategy="median"), StandardScaler(), RidgeCV(alphas=np.logspace(-1, 3, 12)))
+        out["ridge+box"] = (rm2.fit(Btr, tr.margin).predict(Bte), rt2.fit(Btr, tr.total).predict(Bte))
+        gm2 = lgb.LGBMRegressor(**kw).fit(Btr, tr.margin)
+        gt2 = lgb.LGBMRegressor(**kw).fit(Btr, tr.total)
+        out["lightgbm+box"] = (gm2.predict(Bte), gt2.predict(Bte))
     return out
 
 
@@ -128,6 +149,7 @@ def main():
 
     # ---- 2026: same-game comparison with market and KenPom ----
     te, P = preds[2026]
+    BEST = "lightgbm+box" if "lightgbm+box" in P else "lightgbm"
     S = te.mkt_spread.notna() & te.kp_margin.notna()
     print(f"\n=== 2026, identical games with market spread AND KenPom fanmatch (n={int(S.sum())}) ===")
     cmp_rows = []
@@ -148,9 +170,9 @@ def main():
 
     # ---- win probability calibration: sigma estimated from the previous (2025) fold ----
     te25, P25 = preds[2025]
-    sig = float(np.std(te25.margin - P25["lightgbm"][0]))
+    sig = float(np.std(te25.margin - P25[BEST][0]))
     scale = sig * np.sqrt(3) / np.pi
-    pm = pd.Series(P["lightgbm"][0], index=te.index)
+    pm = pd.Series(P[BEST][0], index=te.index)
     y = te.home_win
     wp_cal = pd.Series(norm.cdf(pm / sig), index=te.index)
     wp_v1 = 1 / (1 + np.exp(-pm / 7.0))                     # Lockbot 1.0's fixed scale
@@ -162,7 +184,7 @@ def main():
     print(f"\n=== 2026 win-probability quality, same games (n={int(both.sum())}) ===")
     print(f"residual sigma from 2025 fold: {sig:.2f} pts -> logistic scale ~{scale:.2f} (Lockbot 1.0 used 7.0)")
     cal = pd.DataFrame({
-        "source": ["DraftKings (de-vigged ML)", "KenPom fanmatch", "Lockbot2 lightgbm, calibrated", "Lockbot2 lightgbm, 1.0-style /7.0"],
+        "source": ["DraftKings (de-vigged ML)", "KenPom fanmatch", f"Lockbot2 {BEST}, calibrated", f"Lockbot2 {BEST}, 1.0-style /7.0"],
         "Brier": [brier(te.mkt_wp_home, both), brier(te.kp_wp_home, both), brier(wp_cal, both), brier(wp_v1, both)],
         "LogLoss": [ll(te.mkt_wp_home, both), ll(te.kp_wp_home, both), ll(wp_cal, both), ll(wp_v1, both)]})
     print(cal.to_string(index=False))
@@ -182,12 +204,12 @@ def main():
     results["information_test"] = {"b1": float(beta[1]), "b2": float(beta[2]), "t_b2": float(beta[2] / np.sqrt(cov[2, 2]))}
 
     th = [0, 1, 2, 3, 4, 5]
-    print("\n=== Simulated ATS betting at -110 (break-even win% = 52.4), Lockbot2 lightgbm, 2026 ===")
+    print("\n=== Simulated ATS betting at -110 (break-even win% = 52.4), Lockbot2 best model, 2026 ===")
     ats = ats_table(T.margin.values, T.pm.values, T.mkt_spread.values, th)
     print(ats.to_string(index=False))
     TT = te[St].copy()
-    TT["pt"] = pd.Series(P["lightgbm"][1], index=te.index)[St]
-    print("\n=== Simulated over/under betting at -110, Lockbot2 lightgbm, 2026 ===")
+    TT["pt"] = pd.Series(P[BEST][1], index=te.index)[St]
+    print("\n=== Simulated over/under betting at -110, Lockbot2 best model, 2026 ===")
     ou = ou_table(TT.total.values, TT.pt.values, TT.mkt_total.values, th)
     print(ou.to_string(index=False))
     results["ats_sim"], results["ou_sim"] = ats.to_dict("records"), ou.to_dict("records")

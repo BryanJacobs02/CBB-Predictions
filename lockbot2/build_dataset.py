@@ -18,6 +18,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent))
 import team_match as tm  # noqa: E402
+import box_features as bf  # noqa: E402
 
 RATING_COLS = ["AdjEM", "AdjOE", "AdjDE", "AdjTempo"]
 
@@ -46,7 +47,7 @@ def load_games(E, r_file):
     s["neutral"] = s.neutral_site.fillna(False).astype(int)
     s["conf_game"] = s.conference_competition.fillna(False).astype(int)
     s["postseason"] = (s.season_type == 3).astype(int)
-    keep = ["game_id", "game_date", "season", "kp_home", "kp_away", "home_score", "away_score",
+    keep = ["game_id", "game_date", "season", "home_id", "away_id", "kp_home", "kp_away", "home_score", "away_score",
             "margin", "total", "home_win", "neutral", "conf_game", "postseason"]
     return s[keep].sort_values(["game_date", "game_id"]).reset_index(drop=True)
 
@@ -164,6 +165,7 @@ def main():
     ap.add_argument("--export-dir", required=True)
     ap.add_argument("--odds", required=True)
     ap.add_argument("--r-file", default=str(Path(__file__).parent.parent / "R" / "game_results.R"))
+    ap.add_argument("--box-dir", default=None, help="folder with team_box_{season}.parquet files")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     E = Path(a.export_dir)
@@ -174,6 +176,8 @@ def main():
     g = add_ratings(g, E)
     g = add_market(g, a.odds)
     g = add_kenpom_fanmatch(g, E)
+    if a.box_dir:
+        g = bf.add_box_features(g, a.box_dir)
 
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     g.to_csv(a.out, index=False)
