@@ -22,7 +22,7 @@ from sklearn.preprocessing import StandardScaler
 TEST_SEASONS = [2024, 2025, 2026]
 
 
-def features(d, box=False):
+def features(d, box=False, players=False):
     X = pd.DataFrame(index=d.index)
     for c in ["AdjEM", "AdjOE", "AdjDE", "AdjTempo"]:
         X[f"{c}_h"], X[f"{c}_a"] = d[f"{c}_h_eff"], d[f"{c}_a_eff"]
@@ -49,6 +49,10 @@ def features(d, box=False):
         X["x_pace"] = (X.bh_pace + X.ba_pace) / 2
         X["x_eff_h"] = (X.bh_off_eff + X.ba_def_eff) / 2
         X["x_eff_a"] = (X.ba_off_eff + X.bh_def_eff) / 2
+    if players:
+        for c in ("lost_min1", "lost_prod1", "lost_min3", "star_share", "n_rot", "ret_min", "in_min"):
+            X[f"ph_{c}"], X[f"pa_{c}"] = d[f"ph_{c}"], d[f"pa_{c}"]
+        X["lost_diff"] = X.ph_lost_prod1 - X.pa_lost_prod1
     X["doy"] = (pd.to_datetime(d.game_date) - pd.to_datetime((d.season - 1).astype(str) + "-11-01")).dt.days
     return X
 

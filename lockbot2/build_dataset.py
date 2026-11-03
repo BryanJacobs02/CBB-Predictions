@@ -19,6 +19,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent))
 import team_match as tm  # noqa: E402
 import box_features as bf  # noqa: E402
+import player_features as pf  # noqa: E402
 
 RATING_COLS = ["AdjEM", "AdjOE", "AdjDE", "AdjTempo"]
 
@@ -166,6 +167,7 @@ def main():
     ap.add_argument("--odds", required=True)
     ap.add_argument("--r-file", default=str(Path(__file__).parent.parent / "R" / "game_results.R"))
     ap.add_argument("--box-dir", default=None, help="folder with team_box_{season}.parquet files")
+    ap.add_argument("--player-dir", default=None, help="folder with player_box_{season}.parquet files")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     E = Path(a.export_dir)
@@ -178,6 +180,8 @@ def main():
     g = add_kenpom_fanmatch(g, E)
     if a.box_dir:
         g = bf.add_box_features(g, a.box_dir)
+    if a.player_dir:
+        g = pf.add_player_features(g, a.player_dir)
 
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     g.to_csv(a.out, index=False)

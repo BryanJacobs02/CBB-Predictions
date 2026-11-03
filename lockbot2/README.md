@@ -54,3 +54,13 @@ Gains over either single model are ~0.02 pts: consistent but small. On the 4,766
 DraftKings line: margin MAE 8.985 vs DraftKings 8.863 vs KenPom 8.987; total MAE 13.48 vs 13.32 vs 13.69.
 Model-minus-market weight (regression on the close): margin 0.13 (se 0.08), total 0.05 (se 0.09).
 `eval_blend.py` writes `data/eval_v2.json`, which the app's Model Evaluation tab reads.
+
+## Player-level features (tested, NOT shipped)
+
+`player_features.py` builds 7 pre-game features per team from ESPN player box scores: rotation players who
+missed the previous game (minutes and production), minutes missed over the last 3 games, star dependence,
+rotation size, returning-minutes share and incoming-transfer minutes. Build with `build_dataset.py --player-dir`.
+Walk-forward 2024-26 (blend): margin MAE 9.023 -> 9.013, total MAE 13.230 -> 13.243; first 45 days of each
+season 9.358 -> 9.338. Differences are inside noise, so the shipped model does not use them.
+Likely reason: the ratings and rolling team form already absorb most of what a lost rotation player does, and
+real injury news (which the market has) cannot be reconstructed from last night's box score.
