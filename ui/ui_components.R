@@ -97,3 +97,18 @@ pick_card <- function(r) {
           pick_panel("Total", r$total_pick, r$total_call, r$total_edge, r$total_ev, r$total_stake,
                      r$total_basis, tt_move)))
 }
+
+# ── Manual-bet result card: verdict, pick, key numbers in a grid ──────────────
+bet_result_card <- function(kind, call, pick, stats, note = NULL) {
+  cls <- c(bet = "r-yes", lean = "r-neutral", none = "r-no")[[call]]
+  badge <- c(bet = "bet", lean = "lean", none = "none")[[call]]
+  lab <- c(bet = "BET", lean = "LEAN", none = "NO BET")[[call]]
+  div(class = paste("bet-result", cls),
+      div(class = "bet-result-top",
+          span(class = "pick-kind", kind),
+          span(class = paste("pick-badge", paste0("badge-", badge)), lab)),
+      div(class = "pick-main", pick),
+      div(class = "bet-grid",
+          lapply(names(stats), function(n) div(span(n), tags$b(stats[[n]])))),
+      if (!is.null(note)) div(class = "bet-note", note))
+}

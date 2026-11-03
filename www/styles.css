@@ -3,12 +3,12 @@
 
 /* ── Variables ───────────────────────────────────────────────────────────── */
 :root {
-  --bg-dark:     #0d1117;
-  --bg-card:     #161b22;
-  --bg-elevated: #1c2128;
-  --border:      #30363d;
-  --text-primary:   #e6edf3;
-  --text-secondary: #8b949e;
+  --bg-dark:     #090c10;
+  --bg-card:     #171d26;
+  --bg-elevated: #242e3b;
+  --border:      #475467;
+  --text-primary:   #f0f4f8;
+  --text-secondary: #b3bdc9;
   --accent:      #58a6ff;
   --green:       #3fb950;
   --orange:      #d29922;
@@ -69,7 +69,7 @@ body, .wrapper, .content-wrapper, .main-sidebar {
   background: var(--bg-card) !important;
   border: 1px solid var(--border) !important;
   border-radius: 8px !important;
-  box-shadow: none !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5) !important;
 }
 
 .box-header {
@@ -317,6 +317,7 @@ table.dataTable tbody tr {
   border-bottom: 1px solid var(--border) !important;
 }
 
+table.dataTable tbody tr:nth-child(even) { background: var(--bg-elevated) !important; }
 table.dataTable tbody tr:hover {
   background: var(--bg-elevated) !important;
 }
@@ -345,6 +346,7 @@ h1, h2, h3, h4, h5, h6, p, label, .text-muted {
 }
 
 .text-muted { color: var(--text-secondary) !important; }
+.bet-label, .bet-detail { color: var(--text-secondary) !important; }
 
 /* ── Slider ───────────────────────────────────────────────────────────────── */
 .irs-bar, .irs-bar-edge { background: var(--accent) !important; }
@@ -368,9 +370,9 @@ h1, h2, h3, h4, h5, h6, p, label, .text-muted {
 .picks-chip.chip-lean b { color: var(--orange); }
 .picks-updated { font-size: 0.8rem; color: var(--text-secondary); }
 
-.pick-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
-             padding: 14px 16px; margin-bottom: 12px; }
-.pick-head { margin-bottom: 10px; }
+.pick-card { background: var(--bg-card); border: 2px solid var(--border); border-radius: 10px;
+             padding: 14px 16px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.5); }
+.pick-head { padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 .pick-tip  { font-size: 0.78rem; color: var(--text-secondary); letter-spacing: 0.04em; }
 .pick-tag  { font-size: 0.7rem; margin-left: 8px; padding: 1px 8px; border-radius: 999px;
              border: 1px solid var(--border); color: var(--text-secondary); }
@@ -379,11 +381,12 @@ h1, h2, h3, h4, h5, h6, p, label, .text-muted {
 .pick-model { font-size: 0.8rem; color: var(--text-secondary); }
 
 .pick-panels { display: flex; flex-wrap: wrap; gap: 10px; }
-.pick-panel  { flex: 1 1 260px; border-radius: 8px; padding: 10px 14px; border-left: 4px solid var(--border);
+.pick-panel  { flex: 1 1 260px; border-radius: 8px; padding: 10px 14px; border: 1px solid var(--border); border-left: 6px solid var(--border);
                background: var(--bg-elevated); }
-.pick-panel.call-bet  { border-left-color: var(--green);  background: rgba(63, 185, 80, 0.10); }
-.pick-panel.call-lean { border-left-color: var(--orange); background: rgba(210, 153, 34, 0.08); }
-.pick-panel.call-none { opacity: 0.6; }
+.pick-panel.call-bet  { border-color: var(--green);  background: rgba(63, 185, 80, 0.20); }
+.pick-panel.call-lean { border-color: var(--orange); background: rgba(210, 153, 34, 0.18); }
+.pick-panel.call-none { background: var(--bg-dark); }
+.pick-panel.call-none .pick-main { color: var(--text-secondary); }
 .pick-panel-top { display: flex; justify-content: space-between; align-items: center; }
 .pick-kind  { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.75rem;
               letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-secondary); }
@@ -399,3 +402,32 @@ h1, h2, h3, h4, h5, h6, p, label, .text-muted {
 .pick-basis { font-style: italic; }
 .picks-help summary { cursor: pointer; color: var(--text-secondary); font-size: 0.85rem; margin-top: 8px; }
 .picks-help p { font-size: 0.8rem; color: var(--text-secondary); margin-top: 6px; }
+
+/* ── Manual bet page ──────────────────────────────────────────────────────── */
+.bet-section-title { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.8rem;
+                     letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-secondary);
+                     margin: 4px 0 8px; }
+.bet-setup { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px;
+             padding: 12px 16px 2px; margin-bottom: 14px; }
+.bet-input-card { background: var(--bg-elevated); border: 1px solid var(--border); border-top: 4px solid var(--accent);
+                  border-radius: 8px; padding: 10px 16px 4px; margin-bottom: 14px; }
+.bet-input-card.c-ml  { border-top-color: var(--purple); }
+.bet-input-card.c-tot { border-top-color: var(--orange); }
+.bet-input-title { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 1.15rem;
+                   letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+.bet-input-card .form-group, .bet-setup .form-group { margin-bottom: 10px; }
+.bet-input-card label, .bet-setup label { font-size: 0.8rem; font-weight: 500; color: var(--text-secondary) !important; }
+.bet-adv summary { cursor: pointer; color: var(--text-secondary); font-size: 0.85rem; margin: 4px 0 10px; }
+.bet-result { background: var(--bg-elevated); border: 2px solid var(--border); border-left: 8px solid var(--border);
+              border-radius: 8px; padding: 12px 16px; margin-bottom: 14px; }
+.bet-result.r-yes     { border-color: var(--green);  background: rgba(63,185,80,0.18); }
+.bet-result.r-neutral { border-color: var(--orange); background: rgba(210,153,34,0.16); }
+.bet-result.r-no      { background: var(--bg-dark); }
+.bet-result-top { display: flex; justify-content: space-between; align-items: center; }
+.bet-result .pick-main { font-size: 1.7rem; }
+.bet-result.r-no .pick-main { color: var(--text-secondary); }
+.bet-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 12px; margin: 8px 0; }
+.bet-grid div { background: rgba(0,0,0,0.25); border-radius: 6px; padding: 6px 10px; }
+.bet-grid span { display: block; font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); }
+.bet-grid b { font-family: 'Barlow Condensed', sans-serif; font-size: 1.25rem; }
+.bet-note { font-size: 0.78rem; color: var(--text-secondary); }

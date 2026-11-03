@@ -63,37 +63,46 @@ ui <- dashboardPage(
                 box(width = 12, title = "Betting Analysis", status = "info",
                     p(class = "text-muted", style = "font-size: 0.82rem;",
                       "Enter the lines from your sportsbook. Edges are shrunk toward the market line. ",
-                      "In the 2026 backtest the model beat the OPENING lines (the market later moved toward it) ",
-                      "but not the closing lines, so pick which one you are looking at."),
-                    radioButtons("line_type", "Which line are you looking at?",
-                                 choices = c("Opening line (bet early)" = "open",
-                                             "Current / closing line"   = "close"),
-                                 selected = "open", inline = TRUE),
+                      "The model beat 2026 OPENING lines but not closing lines, so say which one you have."),
+                    div(class = "bet-section-title", "1. Setup"),
+                    div(class = "bet-setup",
+                        fluidRow(
+                          column(4, radioButtons("line_type", "Which line is this?",
+                                                 choices = c("Opening (bet early)" = "open",
+                                                             "Current / closing"   = "close"),
+                                                 selected = "open")),
+                          column(4, selectInput("bet_team", "Team for spread & moneyline",
+                                                choices = c("Select after predicting" = ""), width = "100%")),
+                          column(4, numericInput("bankroll", "Bankroll ($)", value = 1000, min = 0, step = 100, width = "100%"))
+                        )),
+                    div(class = "bet-section-title", "2. Lines from your book"),
                     fluidRow(
-                      column(3, selectInput("bet_team", "Team (spread & moneyline)",
-                                            choices = c("Select after predicting" = ""), width = "100%")),
-                      column(3, numericInput("bet_spread", "Spread for that team (-3.5 = favorite)",
-                                             value = -3.5, step = 0.5, width = "100%")),
-                      column(3, numericInput("bet_spread_odds", "Spread price", value = -110, step = 5, width = "100%")),
-                      column(3, numericInput("bet_moneyline", "Moneyline for that team", value = -150, step = 5, width = "100%"))
+                      column(4, div(class = "bet-input-card",
+                                    div(class = "bet-input-title", "Spread"),
+                                    numericInput("bet_spread", "Line (-3.5 = favorite)", value = -3.5, step = 0.5, width = "100%"),
+                                    numericInput("bet_spread_odds", "Price", value = -110, step = 5, width = "100%"))),
+                      column(4, div(class = "bet-input-card c-ml",
+                                    div(class = "bet-input-title", "Moneyline"),
+                                    numericInput("bet_moneyline", "Price for that team", value = -150, step = 5, width = "100%"))),
+                      column(4, div(class = "bet-input-card c-tot",
+                                    div(class = "bet-input-title", "Over / Under"),
+                                    numericInput("bet_total", "Total line", value = 145.5, step = 0.5, width = "100%"),
+                                    numericInput("bet_total_odds", "Price", value = -110, step = 5, width = "100%")))
                     ),
-                    fluidRow(
-                      column(3, numericInput("bet_total", "Over/Under line", value = 145.5, step = 0.5, width = "100%")),
-                      column(3, numericInput("bet_total_odds", "Over/Under price", value = -110, step = 5, width = "100%")),
-                      column(3, numericInput("bankroll", "Bankroll ($)", value = 1000, min = 0, step = 100, width = "100%")),
-                      column(3, br(), actionButton("analyze_bet_btn", "Analyze Bets",
-                                                   class = "btn-primary btn-block", icon = icon("dollar-sign")))
-                    ),
-                    fluidRow(
-                      column(6, sliderInput("w_spread", "Trust in model vs. market: spread & moneyline (%)",
-                                            min = 0, max = 80, value = 45, step = 5, width = "100%"),
-                             p(class = "text-muted", style = "font-size: 0.75rem;",
-                               "Measured on 4,751 games of 2026: about 54% vs opening lines, 10% vs closing lines.")),
-                      column(6, sliderInput("w_total", "Trust in model vs. market: over/under (%)",
-                                            min = 0, max = 80, value = 55, step = 5, width = "100%"),
-                             p(class = "text-muted", style = "font-size: 0.75rem;",
-                               "Measured: about 64% vs opening totals, 1% vs closing totals."))
-                    ),
+                    tags$details(class = "bet-adv",
+                      tags$summary("Advanced: how much to trust the model vs. the market"),
+                      fluidRow(
+                        column(6, sliderInput("w_spread", "Spread & moneyline (%)",
+                                              min = 0, max = 80, value = 45, step = 5, width = "100%"),
+                               p(class = "text-muted", style = "font-size: 0.75rem;",
+                                 "Measured on 4,751 games of 2026: about 54% vs opening lines, 10% vs closing lines.")),
+                        column(6, sliderInput("w_total", "Over/Under (%)",
+                                              min = 0, max = 80, value = 55, step = 5, width = "100%"),
+                               p(class = "text-muted", style = "font-size: 0.75rem;",
+                                 "Measured: about 64% vs opening totals, 1% vs closing totals."))
+                      )),
+                    actionButton("analyze_bet_btn", "Analyze Bets", class = "btn-primary btn-block btn-lg",
+                                 icon = icon("dollar-sign")),
                     uiOutput("bet_analysis")
                 )
               )
@@ -108,7 +117,7 @@ ui <- dashboardPage(
                     column(9, uiOutput("picks_header"))
                   ),
                   radioButtons("picks_filter", NULL, inline = TRUE,
-                               choices = c("All games" = "all", "Bets and leans" = "leans", "Bets only" = "bets"),
+                               choices = c("All games" = "all", "Bets and Leans" = "leans", "Bets only" = "bets"),
                                selected = "all"),
                   uiOutput("picks_cards"),
                   tags$details(class = "picks-help",

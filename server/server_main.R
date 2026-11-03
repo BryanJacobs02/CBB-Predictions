@@ -191,26 +191,19 @@ server <- function(input, output, session) {
     fmt_pts <- function(x) paste0(ifelse(x > 0, "+", ""), round(x, 1))
     fmt_odds <- function(x) paste0(ifelse(x > 0, "+", ""), x)
     box_for <- function(label, side, r, headline) {
-      cls <- c(bet = "yes", lean = "neutral", none = "no")[[r$call]]
-      verdict <- switch(r$call,
-        bet  = glue("BET {side}"),
-        lean = glue("LEAN {side} (too small)"),
-        none = "NO BET")
-      dollars <- if (bank > 0) paste0(" ($", format(round(bank * r$stake), big.mark = ","), ")") else ""
-      stake <- ""
-      if (r$call == "bet")
-        stake <- paste0(" Suggested stake: ", scales::percent(r$stake, 0.1), " of bankroll", dollars, ".")
-      detail <- glue(
-        "{headline} ",
-        "Win chance after shrinking: {scales::percent(r$p_win, 0.1)} ",
-        "vs. {scales::percent(r$breakeven, 0.1)} needed at {fmt_odds(r$odds)}. ",
-        "Expected value: {ifelse(r$ev > 0, '+', '')}{round(100 * r$ev, 1)}% per dollar.{stake}")
-      bet_box(label, verdict, detail, cls)
+      dollars <- if (bank > 0) paste0("$", format(round(bank * r$stake), big.mark = ",")) else NULL
+      stats <- list(
+        "Win chance" = scales::percent(r$p_win, 0.1),
+        "Needed to break even" = paste0(scales::percent(r$breakeven, 0.1), " at ", fmt_odds(r$odds)),
+        "Expected value" = paste0(ifelse(r$ev > 0, "+", ""), round(100 * r$ev, 1), "% per $1"),
+        "Stake" = if (r$call == "bet")
+          paste0(scales::percent(r$stake, 0.1), if (!is.null(dollars)) paste0(" (", dollars, ")") else "") else "none")
+      bet_result_card(label, r$call, if (r$call == "none") "No edge" else side, stats, headline)
     }
     
     output$bet_analysis <- renderUI({
       tagList(
-        hr(style = "border-color: var(--border); margin: 16px 0;"),
+        div(class = "bet-section-title", style = "margin-top: 16px;", "3. Results"),
         fluidRow(
           column(4, box_for("Spread", bet_team, sp,
                             glue("Model: {bet_team} {fmt_pts(m_bet)} vs. {opp}; line {fmt_pts(input$bet_spread)}. ",
