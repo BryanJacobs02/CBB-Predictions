@@ -15,7 +15,8 @@ from backtest_baselines import features  # noqa: E402
 def main(data="lockbot2/out/games_model.csv", base="lockbot2/out/backtest_results.json", out="data/eval_v2.json"):
     d = pd.read_csv(data, parse_dates=["game_date"])
     d = d[d.AdjEM_h_eff.notna() & d.AdjEM_a_eff.notna()]
-    res = json.load(open(base))
+    old = json.load(open(out)) if Path(out).exists() else {}
+    res = json.load(open(base)) if Path(base).exists() else {"information_test": old.get("information_test")}
     wf, preds = [], {}
     for s in (2024, 2025, 2026):
         tr, te = d[d.season < s], d[d.season == s]

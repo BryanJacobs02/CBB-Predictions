@@ -123,7 +123,7 @@ def add_ratings(g, E):
 
 
 def add_market(g, odds_path):
-    o = pd.read_csv(odds_path, dtype=str)
+    o = pd.concat([pd.read_csv(f, dtype=str) for f in str(odds_path).split(",")], ignore_index=True)
     o = o[o.has_odds == "TRUE"].copy()
 
     def num(c):
@@ -164,7 +164,7 @@ def add_kenpom_fanmatch(g, E):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--export-dir", required=True)
-    ap.add_argument("--odds", required=True)
+    ap.add_argument("--odds", default=None, help="ESPN odds csv(s), comma-separated; optional (only used for evaluation)")
     ap.add_argument("--r-file", default=str(Path(__file__).parent.parent / "R" / "game_results.R"))
     ap.add_argument("--box-dir", default=None, help="folder with team_box_{season}.parquet files")
     ap.add_argument("--player-dir", default=None, help="folder with player_box_{season}.parquet files")
@@ -176,7 +176,11 @@ def main():
     g = add_schedule_context(g)
     g = add_league_context(g)
     g = add_ratings(g, E)
-    g = add_market(g, a.odds)
+    if a.odds:
+        g = add_market(g, a.odds)
+    else:
+        for c in ("mkt_spread", "mkt_total", "mkt_wp_home"):
+            g[c] = np.nan
     g = add_kenpom_fanmatch(g, E)
     if a.box_dir:
         g = bf.add_box_features(g, a.box_dir)

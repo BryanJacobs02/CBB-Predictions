@@ -64,3 +64,30 @@ Walk-forward 2024-26 (blend): margin MAE 9.023 -> 9.013, total MAE 13.230 -> 13.
 season 9.358 -> 9.338. Differences are inside noise, so the shipped model does not use them.
 Likely reason: the ratings and rolling team form already absorb most of what a lost rotation player does, and
 real injury news (which the market has) cannot be reconstructed from last night's box score.
+
+## Keeping it current (refresh)
+
+```
+bash scripts/refresh.sh            # = Rscript scripts/refresh_data.R  +  python3 lockbot2/refresh.py
+git add data/ && git commit -m "Refresh predictions" && git push
+# then in R:  source("global.R"); deploy_lockbot()
+```
+`refresh_data.R` pulls only the current season (ESPN schedule, KenPom teams, weekly + today's ratings) into
+`lockbot_export/`; `refresh.py` downloads box scores, rebuilds the table, retrains on every completed game and
+rewrites `data/predictions_v2.csv`. First time: `pip install -r lockbot2/requirements.txt`.
+Run it weekly (daily during conference play if you like). After the season ends, run it once more so the final
+ratings are saved; next season's early games use them. Preseason works: with no games yet, teams use last
+year's final ratings; if the home-court edge drifts above ~4.6 pts it is rescaled to 4.1.
+
+## Injury snapshots
+
+`scripts/snapshot_injuries.R probe` checks which ESPN endpoints return college-basketball injury data;
+`scripts/snapshot_injuries.R` saves a daily snapshot to `lockbot_injuries/`. History only exists from the day
+you start, so a model can use it after a season or so. Schedule it with cron (`0 11 * * * cd /path/to/project &&
+Rscript scripts/snapshot_injuries.R`); the computer must be awake at that time.
+
+## Historical lines (The Odds API, paid)
+
+`scripts/pull_odds_api.R estimate|probe|run` saves DraftKings spread/total snapshots; `odds_api_merge.py`
+converts them (last snapshot before tip = closing proxy) to the odds csv format `build_dataset.py --odds` takes
+(comma-separate several files).
