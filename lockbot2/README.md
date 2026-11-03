@@ -91,3 +91,19 @@ runs without injury information, which the market does have.
 `scripts/pull_odds_api.R estimate|probe|run` saves DraftKings spread/total snapshots; `odds_api_merge.py`
 converts them (last snapshot before tip = closing proxy) to the odds csv format `build_dataset.py --odds` takes
 (comma-separate several files).
+
+## Opening vs closing lines (2026, 4,751 games with both)
+
+Model trained on 2022-25 only. The market moves toward the model between open and close:
+* closing-line move regressed on (model - open): spread coef 0.42 (t = 8.0), total coef 0.47 (t = 35)
+* result vs line, weight on (model - line): spread 0.54 vs OPEN (se 0.08) but 0.13 vs CLOSE (se 0.08);
+  total 0.64 vs OPEN (se 0.09) but 0.01 vs CLOSE
+* ATS vs the open line by raw edge: >=3 pts 58.8% (556 bets), >=4 pts 65.3% (225), >=5 pts 75% (92);
+  totals vs open 55-58% at every threshold. Against the close the same rules lose roughly the vig.
+Monthly spread weight vs open: Dec 0.47, Jan 0.14, Feb 0.47, Mar 0.64 (noisy but never negative).
+
+Caveats that matter: one season, one book (DraftKings via ESPN); we do not know when the "open" was posted or its
+limits; the model uses game-day data (latest ratings, last night's box score) that an early line could not have
+seen, which overstates what a bettor could capture at open. Treat the numbers as evidence the model has real
+information, not as a promised ROI. Confirming on 2022-25 needs historical lines (scripts/pull_odds_api.R,
+which only has closing-proxy lines, so the open-vs-close test would not extend to those seasons).

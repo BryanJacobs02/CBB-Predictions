@@ -61,9 +61,13 @@ ui <- dashboardPage(
               fluidRow(
                 box(width = 12, title = "Betting Analysis", status = "info",
                     p(class = "text-muted", style = "font-size: 0.82rem;",
-                      "Enter the lines from your sportsbook. Edges are shrunk toward the market line ",
-                      "because the closing line is hard to beat (see the Model Evaluation tab). ",
-                      "Most games will honestly say NO BET."),
+                      "Enter the lines from your sportsbook. Edges are shrunk toward the market line. ",
+                      "In the 2026 backtest the model beat the OPENING lines (the market later moved toward it) ",
+                      "but not the closing lines, so pick which one you are looking at."),
+                    radioButtons("line_type", "Which line are you looking at?",
+                                 choices = c("Opening line (bet early)" = "open",
+                                             "Current / closing line"   = "close"),
+                                 selected = "open", inline = TRUE),
                     fluidRow(
                       column(3, selectInput("bet_team", "Team (spread & moneyline)",
                                             choices = c("Select after predicting" = ""), width = "100%")),
@@ -81,13 +85,13 @@ ui <- dashboardPage(
                     ),
                     fluidRow(
                       column(6, sliderInput("w_spread", "Trust in model vs. market: spread & moneyline (%)",
-                                            min = 0, max = 50, value = 10, step = 5, width = "100%"),
+                                            min = 0, max = 80, value = 45, step = 5, width = "100%"),
                              p(class = "text-muted", style = "font-size: 0.75rem;",
-                               "Measured on 4,751 games: about 10% (uncertainty roughly 0 to 25%).")),
+                               "Measured on 4,751 games of 2026: about 54% vs opening lines, 10% vs closing lines.")),
                       column(6, sliderInput("w_total", "Trust in model vs. market: over/under (%)",
-                                            min = 0, max = 50, value = 0, step = 5, width = "100%"),
+                                            min = 0, max = 80, value = 55, step = 5, width = "100%"),
                              p(class = "text-muted", style = "font-size: 0.75rem;",
-                               "Measured: about 1%. The model has not beaten the totals market."))
+                               "Measured: about 64% vs opening totals, 1% vs closing totals."))
                     ),
                     uiOutput("bet_analysis")
                 )

@@ -10,6 +10,18 @@
 #
 # Residual SDs of (actual - market line): margin 11.2 pts, total 16.8 pts.
 
+# Measured on 4,751 games of 2026 (DraftKings), model trained only on earlier seasons:
+#   vs the CLOSING line: weight 0.10 (margin), 0.01 (total);  residual SD 11.2 / 16.8
+#   vs the OPENING line: weight 0.54 (margin, se 0.08), 0.64 (total, se 0.09);  residual SD 11.3 / 17.0
+# i.e. the market moves toward the model between open and close, so the model's edge is mostly an
+# edge against early lines. Defaults below are the measured weights rounded down.
+LINE_TYPES <- list(
+  open  = list(label = "Opening line (bet early)", weight_spread = 0.45, weight_total = 0.55,
+               sigma_margin = 11.3, sigma_total = 17.0),
+  close = list(label = "Current / closing line",   weight_spread = 0.10, weight_total = 0.00,
+               sigma_margin = 11.2, sigma_total = 16.8)
+)
+
 BET_PARAMS <- list(
   sigma_margin   = 11.2,   # SD of (actual margin - market margin)
   sigma_total    = 16.8,   # SD of (actual total  - market total)

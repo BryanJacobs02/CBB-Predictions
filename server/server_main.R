@@ -161,6 +161,13 @@ server <- function(input, output, session) {
     )
   })
   
+  # Switching between opening and closing lines resets the trust sliders to the measured values
+  observeEvent(input$line_type, {
+    lt <- LINE_TYPES[[input$line_type]]
+    updateSliderInput(session, "w_spread", value = round(100 * lt$weight_spread))
+    updateSliderInput(session, "w_total",  value = round(100 * lt$weight_total))
+  }, ignoreInit = TRUE)
+  
   # ── Betting analysis (spread, moneyline, over/under) ───────────────────────
   observeEvent(input$analyze_bet_btn, {
     req(prediction(), input$bet_team, input$bet_spread, input$bet_moneyline, input$bet_total)
@@ -176,9 +183,10 @@ server <- function(input, output, session) {
     w_s      <- input$w_spread / 100
     w_t      <- input$w_total / 100
     
-    sp <- spread_bet(m_bet, input$bet_spread, input$bet_spread_odds, weight = w_s)
+    lt <- LINE_TYPES[[if (is.null(input$line_type)) "open" else input$line_type]]
+    sp <- spread_bet(m_bet, input$bet_spread, input$bet_spread_odds, weight = w_s, sigma = lt$sigma_margin)
     ml <- moneyline_bet(wp_bet, input$bet_moneyline, weight = w_s)
-    ou <- total_bet(t_model, input$bet_total, input$bet_total_odds, weight = w_t)
+    ou <- total_bet(t_model, input$bet_total, input$bet_total_odds, weight = w_t, sigma = lt$sigma_total)
     
     fmt_pts <- function(x) paste0(ifelse(x > 0, "+", ""), round(x, 1))
     fmt_odds <- function(x) paste0(ifelse(x > 0, "+", ""), x)
@@ -218,8 +226,9 @@ server <- function(input, output, session) {
           class = "alert alert-secondary",
           style = "margin-top: 8px; font-size: 0.78rem;",
           icon("exclamation-triangle"),
-          " Model margin error is about 9 pts per game, close to but not better than the market's. ",
-          "Stakes use quarter-Kelly capped at 3% of bankroll. Not financial advice."
+          " Tested on one season and one sportsbook. Opening lines are available briefly and often with low ",
+          "limits, and the model uses game-day data an early line could not have seen, so real results will be ",
+          "worse than the backtest. Stakes use quarter-Kelly capped at 3% of bankroll. Not financial advice."
         )
       )
     })
