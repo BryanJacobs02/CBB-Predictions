@@ -79,12 +79,12 @@ Run it weekly (daily during conference play if you like). After the season ends,
 ratings are saved; next season's early games use them. Preseason works: with no games yet, teams use last
 year's final ratings; if the home-court edge drifts above ~4.6 pts it is rescaled to 4.1.
 
-## Injury snapshots
+## Injuries (no source)
 
-`scripts/snapshot_injuries.R probe` checks which ESPN endpoints return college-basketball injury data;
-`scripts/snapshot_injuries.R` saves a daily snapshot to `lockbot_injuries/`. History only exists from the day
-you start, so a model can use it after a season or so. Schedule it with cron (`0 11 * * * cd /path/to/project &&
-Rscript scripts/snapshot_injuries.R`); the computer must be awake at that time.
+ESPN's injury endpoints return nothing for college basketball (checked Nov 2026: scoreboard works, injuries
+list is empty, per-game and per-team endpoints return no entries), and the NCAA only required availability
+reports starting with the 2026 tournament. The player-box-score proxy added no accuracy (see above), so the model
+runs without injury information, which the market does have.
 
 ## Historical lines (The Odds API, paid)
 
