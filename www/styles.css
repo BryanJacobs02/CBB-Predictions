@@ -359,3 +359,43 @@ h1, h2, h3, h4, h5, h6, p, label, .text-muted {
   text-transform: uppercase !important;
   color: #58a6ff !important;
 }
+/* ── Today's Picks cards ──────────────────────────────────────────────────── */
+.picks-chips { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 4px 0 12px; }
+.picks-chip { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 999px;
+              padding: 4px 14px; font-size: 0.85rem; color: var(--text-secondary); }
+.picks-chip b { font-family: 'Barlow Condensed', sans-serif; font-size: 1.25rem; margin-right: 4px; }
+.picks-chip.chip-bet b { color: var(--green); }
+.picks-chip.chip-lean b { color: var(--orange); }
+.picks-updated { font-size: 0.8rem; color: var(--text-secondary); }
+
+.pick-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+             padding: 14px 16px; margin-bottom: 12px; }
+.pick-head { margin-bottom: 10px; }
+.pick-tip  { font-size: 0.78rem; color: var(--text-secondary); letter-spacing: 0.04em; }
+.pick-tag  { font-size: 0.7rem; margin-left: 8px; padding: 1px 8px; border-radius: 999px;
+             border: 1px solid var(--border); color: var(--text-secondary); }
+.pick-game { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.5rem;
+             letter-spacing: 0.02em; line-height: 1.2; }
+.pick-model { font-size: 0.8rem; color: var(--text-secondary); }
+
+.pick-panels { display: flex; flex-wrap: wrap; gap: 10px; }
+.pick-panel  { flex: 1 1 260px; border-radius: 8px; padding: 10px 14px; border-left: 4px solid var(--border);
+               background: var(--bg-elevated); }
+.pick-panel.call-bet  { border-left-color: var(--green);  background: rgba(63, 185, 80, 0.10); }
+.pick-panel.call-lean { border-left-color: var(--orange); background: rgba(210, 153, 34, 0.08); }
+.pick-panel.call-none { opacity: 0.6; }
+.pick-panel-top { display: flex; justify-content: space-between; align-items: center; }
+.pick-kind  { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.75rem;
+              letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-secondary); }
+.pick-badge { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 0.8rem;
+              letter-spacing: 0.08em; padding: 1px 10px; border-radius: 999px; }
+.badge-bet  { background: var(--green);  color: #0d1117; }
+.badge-lean { background: var(--orange); color: #0d1117; }
+.badge-none { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+.pick-main  { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.45rem; margin: 2px 0; }
+.pick-stats { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.85rem; color: var(--text-secondary); }
+.pick-stats b { color: var(--text-primary); }
+.pick-sub   { font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; display: flex; gap: 10px; flex-wrap: wrap; }
+.pick-basis { font-style: italic; }
+.picks-help summary { cursor: pointer; color: var(--text-secondary); font-size: 0.85rem; margin-top: 8px; }
+.picks-help p { font-size: 0.8rem; color: var(--text-secondary); margin-top: 6px; }

@@ -107,15 +107,21 @@ ui <- dashboardPage(
                                            class = "btn-primary btn-block", icon = icon("sync"))),
                     column(9, uiOutput("picks_header"))
                   ),
-                  checkboxInput("picks_only_bets", "Only show games with a BET or LEAN", value = FALSE),
-                  DTOutput("picks_table"),
-                  p(class = "text-muted", style = "font-size: 0.78rem; margin-top: 10px;",
-                    "BET = the model's edge, after shrinking toward the market, is worth at least +2% expected value. ",
-                    "LEAN = positive but too small. Edge is in points between the model and the line (before shrinking). ",
-                    "Basis: 'open' means the line has not moved since it opened and tip-off is more than 3 hours away, ",
-                    "so the measured opening-line weights apply; 'close' means the market has moved or game time is near, ",
-                    "so the much smaller closing-line weights apply. Stake is the suggested share of bankroll ",
-                    "(quarter-Kelly, capped at 3%).")
+                  radioButtons("picks_filter", NULL, inline = TRUE,
+                               choices = c("All games" = "all", "Bets and leans" = "leans", "Bets only" = "bets"),
+                               selected = "all"),
+                  uiOutput("picks_cards"),
+                  tags$details(class = "picks-help",
+                    tags$summary("How to read this"),
+                    p("BET = the model's edge, after shrinking toward the market, is worth at least +2% expected value. ",
+                      "LEAN = positive but too small to bet. NO BET = no edge. Edge is the gap in points between the ",
+                      "model and the line, before shrinking."),
+                    p("'open basis' means the line has not moved since it opened and tip-off is more than 3 hours away, ",
+                      "so the measured opening-line weights apply. 'close basis' means the market has moved or game time ",
+                      "is near, so the much smaller closing-line weights apply (these are almost never bets)."),
+                    p("Stake is the suggested share of your bankroll (quarter-Kelly, capped at 3%). ",
+                      "Lines move: always check your book before betting.")
+                  )
               )
       ),
       

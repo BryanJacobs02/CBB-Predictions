@@ -267,36 +267,36 @@ server <- function(input, output, session) {
   output$picks_header <- renderUI({
     err <- picks_error()
     d <- picks_rv()
+    n_bet  <- if (is.null(d)) 0 else sum(d$spread_call == "BET", na.rm = TRUE) + sum(d$total_call == "BET", na.rm = TRUE)
+    n_lean <- if (is.null(d)) 0 else sum(d$spread_call == "LEAN", na.rm = TRUE) + sum(d$total_call == "LEAN", na.rm = TRUE)
     tagList(
       if (!is.null(err))
         div(class = "alert alert-warning", style = "padding: 6px 10px; margin-bottom: 6px;",
             "Could not refresh: ", err, if (!is.null(d)) " Showing the last saved list."),
       if (!is.null(d))
-        p(class = "text-muted", style = "margin: 6px 0;",
-          glue("Lines pulled {d$generated_at[1]}. {nrow(d)} games; ",
-               "{sum(d$spread_call == 'BET', na.rm = TRUE)} spread BETs, ",
-               "{sum(d$total_call == 'BET', na.rm = TRUE)} total BETs. ",
-               "Lines move: always check your book before betting.")) else
-        p(class = "text-muted", style = "margin: 6px 0;", "Open this tab or press the button to pull today's lines.")
+        div(class = "picks-chips",
+            span(class = "picks-chip chip-bet",  tags$b(n_bet),  "bets"),
+            span(class = "picks-chip chip-lean", tags$b(n_lean), "leans"),
+            span(class = "picks-chip", tags$b(nrow(d)), "games"),
+            span(class = "picks-updated", glue("Lines pulled {d$generated_at[1]}"))) else
+        p(class = "text-muted", "Open this tab or press the button to pull today's lines.")
     )
   })
   
-  output$picks_table <- renderDT({
+  output$picks_cards <- renderUI({
     d <- picks_data()
-    if (isTRUE(input$picks_only_bets))
-      d <- d[d$spread_call %in% c("BET", "LEAN") | d$total_call %in% c("BET", "LEAN"), , drop = FALSE]
-    tbl <- data.frame(
-      Tip = d$tip_et,
-      Game = paste0(d$away, " @ ", d$home, ifelse(d$neutral, " (neutral)", "")),
-      Model = paste0(sprintf("%+.1f", d$model_margin_home), " / ", d$model_total),
-      `Spread pick` = d$spread_pick, `Edge` = d$spread_edge, `EV %` = d$spread_ev,
-      Call = d$spread_call, `Stake %` = d$spread_stake, Basis = d$spread_basis,
-      `Total pick` = d$total_pick, `Edge ` = d$total_edge, `EV % ` = d$total_ev,
-      `Call ` = d$total_call, `Stake % ` = d$total_stake,
-      check.names = FALSE, stringsAsFactors = FALSE)
-    datatable(tbl, rownames = FALSE, options = list(pageLength = 25, scrollX = TRUE, order = list())) |>
-      formatStyle(c("Call", "Call "), fontWeight = "bold",
-                  color = styleEqual(c("BET", "LEAN", "NONE"), c("#3fb950", "#d29922", "#8b949e")))
+    if (is.null(d) || nrow(d) == 0) return(p(class = "text-muted", "No games with lines yet."))
+    flt <- if (is.null(input$picks_filter)) "all" else input$picks_filter
+    best <- pmax(d$spread_ev, d$total_ev, na.rm = TRUE)
+    best[!is.finite(best)] <- -Inf
+    d <- d[order(-best), , drop = FALSE]
+    keep <- switch(flt,
+      all   = rep(TRUE, nrow(d)),
+      leans = d$spread_call %in% c("BET", "LEAN") | d$total_call %in% c("BET", "LEAN"),
+      bets  = d$spread_call %in% "BET" | d$total_call %in% "BET")
+    d <- d[keep %in% TRUE, , drop = FALSE]
+    if (nrow(d) == 0) return(p(class = "text-muted", "No games match this filter."))
+    tagList(lapply(seq_len(nrow(d)), function(i) pick_card(as.list(d[i, ]))))
   })
   
   # ── Stats table ────────────────────────────────────────────────────────────
