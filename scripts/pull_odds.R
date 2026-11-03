@@ -14,6 +14,8 @@
 
 SEASONS    <- 2026            # 2026 = the 2025-26 season
 PAUSE_SEC  <- 0.3
+RETRY_MISSING <- FALSE   # TRUE = re-query games previously recorded as "no odds"
+                         # (use after a run where a block of games came back empty)
 EXPORT_DIR <- "lockbot_export"
 OUT        <- "lockbot_odds"
 
@@ -63,6 +65,14 @@ get_row <- function(id) {
 for (s in SEASONS) {
   f    <- file.path(OUT, glue("odds_{s}.csv"))
   ids  <- sched |> filter(season == s) |> pull(game_id) |> as.character() |> unique()
+  if (RETRY_MISSING && file.exists(f)) {
+    prev   <- read.csv(f, colClasses = "character")
+    n_miss <- sum(prev$has_odds != "TRUE")
+    if (n_miss > 0) {
+      message(glue("  retrying {n_miss} games previously recorded as 'no odds'"))
+      write.csv(prev[prev$has_odds == "TRUE", ], f, row.names = FALSE)
+    }
+  }
   done <- if (file.exists(f)) read.csv(f, colClasses = "character")$game_id else character(0)
   todo <- setdiff(ids, done)
   message(glue("\nSeason {s}: {length(ids)} D1 games, {length(done)} done, {length(todo)} to go"))
