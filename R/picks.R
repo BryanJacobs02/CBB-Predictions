@@ -56,8 +56,11 @@ build_picks <- function(days_ahead = 1, cache = PREDICTION_CACHE_V2, progress = 
            spread_open = num(g("point_spread_home_open_line")), spread_now = cur_sp,
            total_open = num(g("total_over_open_line")),
            total_now = num(g("total_over_close_line")) %||% num(g("over_under")),
-           spread_price = num(g("point_spread_home_close_odds")) %||% -110,
-           total_price  = num(g("total_over_close_odds")) %||% -110)
+           # each side has its own price; fall back to -110 only if ESPN gives none
+           price_home  = dplyr::coalesce(num(g("point_spread_home_close_odds")), num(g("home_team_odds_spread_odds")), -110),
+           price_away  = dplyr::coalesce(num(g("point_spread_away_close_odds")), num(g("away_team_odds_spread_odds")), -110),
+           price_over  = dplyr::coalesce(num(g("total_over_close_odds")),  num(g("over_odds")),  -110),
+           price_under = dplyr::coalesce(num(g("total_under_close_odds")), num(g("under_odds")), -110))
   }
   n_games <- nrow(games)
     lines <- map_dfr(seq_len(n_games), function(i) { if (!is.null(progress)) progress(i, n_games); get_lines(games$game_id[i]) })
@@ -82,19 +85,19 @@ build_picks <- function(days_ahead = 1, cache = PREDICTION_CACHE_V2, progress = 
     # spread: evaluate both sides against the CURRENT line, keep the better one
     if (!is.na(r$spread_now)) {
       lt <- LINE_TYPES[[pick_weight(r$spread_open, r$spread_now, hours)]]
-      h <- spread_bet(pr$margin, r$spread_now, r$spread_price, lt$weight_spread, lt$sigma_margin)
-      a <- spread_bet(-pr$margin, -r$spread_now, r$spread_price, lt$weight_spread, lt$sigma_margin)
+      h <- spread_bet(pr$margin, r$spread_now, r$price_home, lt$weight_spread, lt$sigma_margin)
+      a <- spread_bet(-pr$margin, -r$spread_now, r$price_away, lt$weight_spread, lt$sigma_margin)
       best <- if (h$ev >= a$ev) h else a; home_side <- h$ev >= a$ev
       out$spread_pick <- if (home_side) glue("{r$home_name} {sprintf('%+.1f', r$spread_now)}") else glue("{r$away_name} {sprintf('%+.1f', -r$spread_now)}")
-      out$spread_edge <- round(best$raw_edge, 1); out$spread_ev <- round(100 * best$ev, 1)
+      out$spread_price <- best$odds; out$spread_edge <- round(best$raw_edge, 1); out$spread_ev <- round(100 * best$ev, 1)
       out$spread_call <- toupper(best$call); out$spread_stake <- round(100 * best$stake, 1)
       out$spread_basis <- pick_weight(r$spread_open, r$spread_now, hours)
     }
     if (!is.na(r$total_now)) {
       lt <- LINE_TYPES[[pick_weight(r$total_open, r$total_now, hours)]]
-      t <- total_bet(pr$total, r$total_now, r$total_price, lt$weight_total, lt$sigma_total)
+      t <- total_bet(pr$total, r$total_now, r$price_over, lt$weight_total, lt$sigma_total, odds_under = r$price_under)
       out$total_pick <- glue("{t$side} {r$total_now}")
-      out$total_edge <- round(abs(t$raw_edge), 1); out$total_ev <- round(100 * t$ev, 1)
+      out$total_price <- t$odds; out$total_edge <- round(abs(t$raw_edge), 1); out$total_ev <- round(100 * t$ev, 1)
       out$total_call <- toupper(t$call); out$total_stake <- round(100 * t$stake, 1)
       out$total_basis <- pick_weight(r$total_open, r$total_now, hours)
     }

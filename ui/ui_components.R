@@ -52,7 +52,7 @@ fmt_signed <- function(x, digits = 1) ifelse(is.na(x), "–", sprintf(paste0("%+
 fmt_plain  <- function(x) ifelse(is.na(x), "–", sprintf("%.1f", x))
 
 # One bet panel (spread or total). `moved` is a short text like "open +2.5 → now +3.0" or NULL
-pick_panel <- function(kind, pick, call, edge, ev, stake, basis, moved = NULL) {
+pick_panel <- function(kind, pick, call, edge, ev, stake, basis, moved = NULL, price = NA) {
   if (is.null(pick) || is.na(pick)) return(NULL)
   cls  <- c(BET = "bet", LEAN = "lean", NONE = "none")[[if (is.na(call)) "NONE" else call]]
   lab  <- c(BET = "BET", LEAN = "LEAN", NONE = "NO BET")[[if (is.na(call)) "NONE" else call]]
@@ -60,7 +60,7 @@ pick_panel <- function(kind, pick, call, edge, ev, stake, basis, moved = NULL) {
       div(class = "pick-panel-top",
           span(class = "pick-kind", kind),
           span(class = paste("pick-badge", paste0("badge-", cls)), lab)),
-      div(class = "pick-main", pick),
+      div(class = "pick-main", pick, if (length(price) == 1 && !is.na(price)) span(class = "pick-price", sprintf(" (%+d)", as.integer(price)))),
       if (cls != "none")
         div(class = "pick-stats",
             span(HTML(glue("<b>{fmt_plain(edge)}</b> pt edge"))),
@@ -93,9 +93,9 @@ pick_card <- function(r) {
           div(class = "pick-model", model_txt)),
       div(class = "pick-panels",
           pick_panel("Spread", r$spread_pick, r$spread_call, r$spread_edge, r$spread_ev, r$spread_stake,
-                     r$spread_basis, sp_move),
+                     r$spread_basis, sp_move, price = r$spread_price),
           pick_panel("Total", r$total_pick, r$total_call, r$total_edge, r$total_ev, r$total_stake,
-                     r$total_basis, tt_move)))
+                     r$total_basis, tt_move, price = r$total_price)))
 }
 
 # ── Manual-bet result card: verdict, pick, key numbers in a grid ──────────────

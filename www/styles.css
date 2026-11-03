@@ -431,3 +431,5 @@ h1, h2, h3, h4, h5, h6, p, label, .text-muted {
 .bet-grid span { display: block; font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); }
 .bet-grid b { font-family: 'Barlow Condensed', sans-serif; font-size: 1.25rem; }
 .bet-note { font-size: 0.78rem; color: var(--text-secondary); }
+
+.pick-price { font-size: 0.95rem; font-weight: 400; color: var(--text-secondary); }
