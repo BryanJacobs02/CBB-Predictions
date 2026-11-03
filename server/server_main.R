@@ -225,44 +225,6 @@ server <- function(input, output, session) {
     })
   })
   
-  # ── Training ───────────────────────────────────────────────────────────────
-  output$train_log <- renderText("Click 'Train Model' to begin.")
-  
-  observeEvent(input$train_btn, {
-    seasons   <- as.integer(input$train_seasons)
-    half_life <- as.numeric(input$half_life)
-    
-    if (length(seasons) == 0) {
-      output$train_log <- renderText("Select at least one season.")
-      return()
-    }
-    
-    output$train_log <- renderText(
-      glue("Training on seasons: {paste(seasons, collapse=', ')} | ",
-           "half-life: {half_life} days\nCheck R console for epoch-by-epoch progress...")
-    )
-    
-    tryCatch({
-      run_training(seasons = seasons, half_life = half_life,
-                   full_train = input$full_train)
-      
-      output$train_log <- renderText(
-        glue("✅ Training complete. Generating prediction cache...\n",
-             "This will take 20-30 minutes for all D1 matchups.")
-      )
-      
-      output$train_log <- renderText(
-        glue("✅ Training and cache complete.\n",
-             "Seasons: {paste(seasons, collapse=', ')}\n",
-             "Half-life: {half_life} days\n",
-             "Cached {length(PREDICTION_CACHE)} matchups.\n",
-             "Model saved to data/models/")
-      )
-    }, error = function(e) {
-      output$train_log <- renderText(paste("❌ Error:", e$message))
-    })
-  })
-  
   # ── Stats table ────────────────────────────────────────────────────────────
   output$ratings_table <- renderDT({
     get_ratings() |>
