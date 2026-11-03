@@ -1,147 +1,134 @@
-# LockBot 1.0 — NCAA Basketball Score Predictor
+# LockBot 2.0 — NCAA Basketball Score Predictor and Betting Model
 
-*A Graph Neural Network trained on KenPom advanced statistics to predict NCAA D1 men's basketball game scores and outcomes*
-
-## Project Overview
-
-LockBot uses a Graph Attention Network (GAT) to predict final scores for any NCAA Division I men's basketball matchup. Unlike models that evaluate teams in isolation, LockBot learns from inter-team relationships (conference rivalries, common opponents, and competitive history) on top of 35 advanced statistical features sourced from the KenPom API. Predictions include projected final scores, implied win probability, point spread coverage analysis, and moneyline value assessment against user-entered betting lines.
-
-The model is trained on ~12,600 historical games across three seasons using point-in-time features to prevent data leakage. A 2024 game is evaluated using only statistics available in 2024, not end-of-2026 ratings.
+*Ridge + gradient-boosted models on point-in-time KenPom ratings and rolling box-score form, predicting NCAA D1 men's basketball margins, totals, and win probabilities, with a betting analyzer calibrated against real sportsbook lines.*
 
 ## Live App
 
 **https://bryan-jacobs.shinyapps.io/lockbot/**
 
-## Performance vs. Benchmarks
+## What it does
 
-Evaluated on a chronologically held-out test set of 2,530 games never seen during training:
+- **Predict Matchup** — projected score, margin, total, and win probability for any two D1 teams (home, away, or neutral site), with a win-probability donut and a stat-percentile comparison.
+- **Today's Picks** — pulls today's and tomorrow's DraftKings lines from ESPN, compares them with the model, and lists spread and over/under picks ranked by expected value. A refresh button re-pulls the lines.
+- **Betting Analysis** — enter any spread, total, or moneyline and get an edge, expected value, and a suggested stake (quarter-Kelly, capped at 3% of bankroll), or "no bet".
+- **Team Stats** and **Model Evaluation** — current KenPom ratings and the walk-forward backtest.
 
-| Metric | LockBot | KenPom Fanmatch | Vegas Closing Line |
-|---|---|---|---|
-| Winner Accuracy | **71.2%** | ~70-72% | ~73-75% |
-| Score MAE | **7.69 pts** | 8.07 pts | ~7.0-7.5 pts |
-| Margin MAE | **8.39 pts** | — | — |
-| Brier Score (implied) | **0.187** | — | ~0.170 |
-| Home advantage learned | **5.07 pts** | 5.1 pts (actual avg) | — |
+## Performance
 
-LockBot matches or exceeds KenPom's raw score prediction accuracy and approaches Vegas-level winner prediction without access to line movement, injury reports, or real-time data.
+Every number below comes from **walk-forward testing**: each season is predicted by models trained only on earlier seasons, using only information available before tip-off.
 
-## Authors
+| Season | Games | Winner accuracy | Margin MAE | Total MAE |
+|---|---|---|---|---|
+| 2024 | 5,724 | 71.9% | 8.98 | 13.12 |
+| 2025 | 5,748 | 72.5% | 8.95 | 12.93 |
+| 2026 | 5,749 | 71.9% | 9.14 | 13.64 |
 
-**Bryan Jacobs**
+Head to head on the 4,766 games of 2026 that have a DraftKings line (identical games for every row):
 
-## Languages / Packages
+| | Margin MAE | Winner accuracy | Total MAE | Brier (win prob.) |
+|---|---|---|---|---|
+| DraftKings closing line | 8.86 | 70.8% | 13.32 | 0.1867 |
+| KenPom (fanmatch) | 8.99 | 70.3% | 13.69 | 0.1875 |
+| **LockBot 2.0** | **8.99** | **70.1%** | **13.48** | **0.1877** |
 
-**R**
-- shiny, shinydashboard, shinyWidgets
-- httr2, jsonlite
-- dplyr, tidyr, purrr, lubridate
-- reticulate, plotly, DT
-- hoopR, memoise, glue, scales, stringdist
+LockBot 2.0 is on par with KenPom on margins, a little better on totals, and slightly behind the closing line.
 
-**Python**
-- PyTorch
-- torch-geometric (Graph Attention Networks)
-- pandas, numpy, scikit-learn
+### Betting findings (2026, 4,751 games with opening and closing lines)
 
-## Data Sources
+- The market **moves toward the model** between open and close. The model's weight in predicting results is about 0.54 (spread) and 0.64 (total) against **opening** lines, but only about 0.10 and 0.01 against **closing** lines.
+- So the edge is against early lines, not closing lines. The betting tool therefore shrinks the model toward the market, using different weights for opening and closing lines.
+- Caveats: one season, one sportsbook, and the model uses game-day data an opening line could not have seen, so real results will be worse than the backtest. See `lockbot2/README.md` for the full analysis.
 
-- **KenPom API** — AdjEM, AdjOE, AdjDE, Tempo, Four Factors, Misc Stats, Height, Point Distribution, Conference Ratings, weekly archive snapshots
-- **hoopR / ESPN** — actual game results and final scores for training labels
+### What was tested and did not help
 
-## Model Architecture
+Player-level features (rotation absences, returning minutes, transfers) and extra model types added no measurable accuracy. ESPN publishes no college-basketball injury data. Details are in `lockbot2/README.md`.
 
-- **Graph Attention Network (GAT)** — 2-layer, 4 attention heads, learns team embeddings encoding inter-team relationships
-- **MatchupPredictor** — separate encoding paths for home and away teams with an explicit learnable home advantage parameter
-- **Features** — 35 per-team features normalized with direction-aware inversion (lower defensive metrics inverted so higher always = better)
-- **Training** — 500 epochs, cosine annealing LR schedule, recency-weighted MSE loss (60-day half-life), full dataset training for deployment
-- **Leak prevention** — season-specific static features, weekly point-in-time archive ratings, chronological train/test split
+## Changes from LockBot 1.0
+
+- The Graph Attention Network was replaced by a ridge + LightGBM blend; at this data size the simpler models did at least as well.
+- Rolling box-score form (efficiency, four factors, pace) was added.
+- Win probability is calibrated from out-of-sample residuals instead of a fixed constant.
+- Over/under, expected value, and capped fractional-Kelly sizing were added; the betting model was calibrated against real lines.
+- 1.0's published figures came from a model trained on all games and covered only about 73% of D1 games, so they are not comparable with the walk-forward numbers above.
+
+## How it works
+
+1. `scripts/refresh_data.R` pulls the current season's KenPom ratings (weekly snapshots plus today's) and the ESPN schedule into `lockbot_export/`.
+2. `lockbot2/refresh.py` downloads ESPN box scores, builds a leak-free table (latest KenPom snapshot strictly before game day, rolling box-score form, rest, recent margin, league scoring level), trains the blend on every completed game, and writes `data/predictions_v2.csv` for every ordered pair of teams, at home and neutral sites.
+3. The Shiny app reads that cache; win probability is a normal CDF of the predicted margin with an out-of-sample sigma (about 11.4 points).
+4. `R/picks.R` and `R/betting_v2.R` turn lines plus predictions into picks and stakes.
 
 ## Repository Structure
 ```
-cbb-predictor/
-├── app.R                     # Shiny entry point
-├── global.R                  # Shared config, package loads, mode detection
+├── app.R, global.R           # Shiny entry point and shared setup
 ├── R/
-│   ├── kenpom_api.R          # KenPom API calls and caching
-│   ├── feature_engineering.R # Feature matrix + historical snapshots
-│   ├── graph_builder.R       # Team relationship graph construction
-│   ├── game_results.R        # hoopR game results + name crosswalk
-│   ├── prediction.R          # Live prediction + cache lookup
-│   ├── prediction_cache.R    # Bulk prediction cache generator
-│   └── team_data.R           # Team logos and colors
-├── python/
-│   ├── gnn_model.py          # GAT + MatchupPredictor architecture
-│   ├── train.py              # Training loop with evaluation metrics
-│   └── predict.py            # Inference
-├── data/
-│   ├── models/               # Saved model weights (not tracked in git)
-│   └── predictions_cache.rds # Pre-computed predictions (not tracked in git)
-├── ui/
-│   ├── ui_main.R             # Dashboard layout
-│   └── ui_components.R       # Reusable UI components
-├── server/
-│   └── server_main.R         # Shiny server logic
-└── www/
-    └── styles.css            # Dark theme styling
+│   ├── prediction_cache_v2.R # 2.0 cache loader and lookup
+│   ├── betting_v2.R          # edge / EV / Kelly math and measured line weights
+│   ├── picks.R               # builds the daily pick list from live ESPN lines
+│   ├── plots_v2.R            # dark-theme win-probability and stat charts
+│   └── kenpom_api.R, team_data.R, prediction.R, ...   # data access and 1.0 code
+├── lockbot2/                 # model pipeline (see lockbot2/README.md)
+│   ├── build_dataset.py, box_features.py, team_match.py
+│   ├── make_cache.py, refresh.py, eval_blend.py
+│   └── backtest_baselines.py, line_movement.py, player_features.py
+├── scripts/                  # refresh_data.R, refresh.sh, make_picks.R, export/odds pulls
+├── data/                     # predictions_v2.csv, team_map.csv, eval_v2.json
+├── ui/, server/, www/        # dashboard layout, server logic, dark theme
+└── python/                   # LockBot 1.0 GNN (legacy, not used by 2.0)
 ```
 
 ## How to Run Locally
 
 ### Prerequisites
 
-- R 4.4+
-- Python 3.12+
-- KenPom API key
+- R 4.4+ and Python 3.12+
+- A KenPom API key
 
 ### Setup
 
-1. Clone the repository
+1. Clone the repository and check out the `lockbot-2.0` branch.
 2. Create `.Renviron` in the project root:
 ```
 KENPOM_API_KEY=your_key_here
 ```
-3. Install R packages:
-```r
-install.packages(c("shiny", "shinydashboard", "shinyWidgets", "httr2",
-                   "jsonlite", "dplyr", "tidyr", "purrr", "lubridate",
-                   "reticulate", "plotly", "DT", "glue", "memoise",
-                   "cachem", "hoopR", "stringdist", "scales"))
-```
-4. Create the Python virtual environment:
-```bash
-python python/setup_env.py
-```
+3. Install R packages (`renv::restore()` or the list in `global.R`).
+4. Install Python packages: `pip install -r lockbot2/requirements.txt`
 5. Launch the app:
 ```r
-source("global.R")
 shiny::runApp()
 ```
 
-### Retraining
+### Refreshing the predictions (weekly, or twice a week in season)
 
-1. Go to the **Train Model** tab
-2. Select seasons and half-life settings
-3. Check **Full train mode**
-4. Click **Train Model** (~10 minutes)
-5. After training, generate the prediction cache:
-```r
-PREDICTION_CACHE <- generate_prediction_cache()
+The app's predictions come from a saved file, so they only change when you refresh. **What a refresh does:**
+1. Pulls this season's newest KenPom ratings and ESPN schedule and results.
+2. Downloads the latest box scores.
+3. Rebuilds the training table and retrains the model on every game played so far.
+4. Rewrites `data/predictions_v2.csv` with new predictions for every team pairing.
+
+It takes a few minutes. Today's Picks does not need it, because that tab pulls live lines every time you open it.
+
+**How to do it** (Terminal, in the project folder, the one containing `app.R`):
+```bash
+bash scripts/refresh.sh                       # steps 1-4 above
+git add data/ && git commit -m "Refresh predictions" && git push
 ```
-6. Redeploy:
+Then in the R console, to publish to shinyapps.io:
 ```r
-rsconnect::deployApp(
-  appDir   = ".",
-  appName  = "lockbot",
-  appFiles = c("app.R", "global.R", "packages.R", ".Renviron",
-               "R/", "ui/", "server/", "www/",
-               "data/models/", "data/predictions_cache.rds")
-)
+source("global.R"); deploy_lockbot()
 ```
+After the season ends, run the refresh once more so the final ratings are saved for next season. If it stops with an "unmatched team" error, a new or renamed team needs adding to `lockbot2/team_match.py`.
+
+The first time only, run `scripts/export_lockbot_data.R` to create the historical export (`lockbot_export/`) that the refresh builds on.
+
+## Data Sources
+
+- **KenPom API** — AdjEM, AdjOE, AdjDE, tempo, weekly archive snapshots
+- **ESPN / hoopR / sportsdataverse** — schedules, results, team box scores, and DraftKings lines (via ESPN)
 
 ## AI Acknowledgment
 
-This project was built with the assistance of [Claude](https://claude.ai) (Anthropic) through a single extended conversation covering the full development lifecycle of architecture design, R and Python implementation, debugging, model tuning, data leakage remediation, UI design, and deployment. All code was written collaboratively with Claude and reviewed, tested, and iterated on by the author.
+This project was built with the assistance of [Claude](https://claude.ai) (Anthropic) across extended conversations covering architecture, R and Python implementation, debugging, model evaluation, data-leakage remediation, UI design, and deployment. All code was written collaboratively with Claude and reviewed, tested, and iterated on by the author.
 
 ## Contact
 

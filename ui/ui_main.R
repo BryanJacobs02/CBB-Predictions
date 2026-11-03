@@ -7,27 +7,26 @@ ui <- dashboardPage(
                letter-spacing: 0.12em;
                text-transform: uppercase;
                color: #58a6ff;",
-      "LockBot 1.0"
+      "LockBot 2.0"
     ),
     titleWidth = 250
   ),
   
   dashboardSidebar(
-    do.call(sidebarMenu, Filter(Negate(is.null), list(
+    do.call(sidebarMenu, c(list(id = "tabs"), Filter(Negate(is.null), list(
       menuItem("Predict Matchup",  tabName = "predict", icon = icon("basketball-ball")),
-      if (file.exists(".venv"))
-        menuItem("Train Model",    tabName = "train",   icon = icon("brain")),
+      menuItem("Today's Picks",    tabName = "picks",   icon = icon("list-ol")),
       menuItem("Team Stats",       tabName = "stats",   icon = icon("table")),
       menuItem("Model Evaluation", tabName = "eval",    icon = icon("chart-line"))
-    )))
+    ))))
   ),
   
   dashboardBody(
-    tags$head(tags$title("LockBot 1.0"),
-              tags$script("document.title = 'LockBot 1.0';"),
+    tags$head(tags$title("LockBot 2.0"),
+              tags$script("document.title = 'LockBot 2.0';"),
               tags$link(rel = "stylesheet", type = "text/css", href = "styles.css"),
-              tags$meta(property = "og:title",       content = "LockBot 1.0"),
-              tags$meta(property = "og:description", content = "NCAA Basketball Score Predictor powered by a Graph Neural Network"),
+              tags$meta(property = "og:title",       content = "LockBot 2.0"),
+              tags$meta(property = "og:description", content = "NCAA Basketball Score Predictor powered by gradient-boosted models on KenPom and box-score form"),
               tags$meta(property = "og:image",       content = "https://bryanjacobs.shinyapps.io/lockbot/preview.png"),
               tags$meta(property = "og:type",        content = "website"),
               tags$meta(name = "twitter:card",       content = "summary_large_image"),
@@ -62,69 +61,78 @@ ui <- dashboardPage(
               ),
               fluidRow(
                 box(width = 12, title = "Betting Analysis", status = "info",
+                    p(class = "text-muted", style = "font-size: 0.82rem;",
+                      "Enter the lines from your sportsbook. Edges are shrunk toward the market line. ",
+                      "The model beat 2026 OPENING lines but not closing lines, so say which one you have."),
+                    div(class = "bet-section-title", "1. Setup"),
+                    div(class = "bet-setup",
+                        fluidRow(
+                          column(4, radioButtons("line_type", "Which line is this?",
+                                                 choices = c("Opening (bet early)" = "open",
+                                                             "Current / closing"   = "close"),
+                                                 selected = "open")),
+                          column(4, selectInput("bet_team", "Team for spread & moneyline",
+                                                choices = c("Select after predicting" = ""), width = "100%")),
+                          column(4, numericInput("bankroll", "Bankroll ($)", value = 1000, min = 0, step = 100, width = "100%"))
+                        )),
+                    div(class = "bet-section-title", "2. Lines from your book"),
                     fluidRow(
-                      column(3,
-                             selectInput("bet_team", "Team to Bet On",
-                                         choices = c("Select after predicting" = ""),
-                                         width = "100%")
-                      ),
-                      column(3,
-                             numericInput("bet_spread", "Point Spread (negative = favorite)",
-                                          value = -3.5, step = 0.5, width = "100%")
-                      ),
-                      column(3,
-                             numericInput("bet_moneyline", "Moneyline (e.g. -150 or +130)",
-                                          value = -150, step = 5, width = "100%")
-                      ),
-                      column(3,
-                             br(),
-                             actionButton("analyze_bet_btn", "Analyze Bet",
-                                          class = "btn-primary btn-block",
-                                          icon = icon("dollar-sign"))
-                      )
+                      column(4, div(class = "bet-input-card",
+                                    div(class = "bet-input-title", "Spread"),
+                                    numericInput("bet_spread", "Line (-3.5 = favorite)", value = -3.5, step = 0.5, width = "100%"),
+                                    numericInput("bet_spread_odds", "Price", value = -110, step = 5, width = "100%"))),
+                      column(4, div(class = "bet-input-card c-ml",
+                                    div(class = "bet-input-title", "Moneyline"),
+                                    numericInput("bet_moneyline", "Price for that team", value = -150, step = 5, width = "100%"))),
+                      column(4, div(class = "bet-input-card c-tot",
+                                    div(class = "bet-input-title", "Over / Under"),
+                                    numericInput("bet_total", "Total line", value = 145.5, step = 0.5, width = "100%"),
+                                    numericInput("bet_total_odds", "Price", value = -110, step = 5, width = "100%")))
                     ),
+                    tags$details(class = "bet-adv",
+                      tags$summary("Advanced: how much to trust the model vs. the market"),
+                      fluidRow(
+                        column(6, sliderInput("w_spread", "Spread & moneyline (%)",
+                                              min = 0, max = 80, value = 45, step = 5, width = "100%"),
+                               p(class = "text-muted", style = "font-size: 0.75rem;",
+                                 "Measured on 4,751 games of 2026: about 54% vs opening lines, 10% vs closing lines.")),
+                        column(6, sliderInput("w_total", "Over/Under (%)",
+                                              min = 0, max = 80, value = 55, step = 5, width = "100%"),
+                               p(class = "text-muted", style = "font-size: 0.75rem;",
+                                 "Measured: about 64% vs opening totals, 1% vs closing totals."))
+                      )),
+                    actionButton("analyze_bet_btn", "Analyze Bets", class = "btn-primary btn-block btn-lg",
+                                 icon = icon("dollar-sign")),
                     uiOutput("bet_analysis")
                 )
               )
       ),
       
-      # ── Train ────────────────────────────────────────────────────────────────
-      if (file.exists(".venv"))
-        tabItem("train",
-                box(width = 12, title = "Model Training", status = "warning",
-                    p("Trains the GNN on actual game results with point-in-time features.
-               Expect 5–10 minutes (500 epochs)."),
-                    fluidRow(
-                      column(4,
-                             sliderInput("half_life", "Recency half-life (days)",
-                                         min = 14, max = 180, value = 60, step = 7),
-                             p(class = "text-muted",
-                               "Lower = recent games weighted much more heavily. ",
-                               "60 days means a game from 2 months ago counts half as much as today's.")
-                      ),
-                      column(4,
-                             checkboxGroupInput("train_seasons", "Seasons to include",
-                                                choices = setNames(
-                                                  c(SEASON_YEAR - 2, SEASON_YEAR - 1, SEASON_YEAR),
-                                                  c(glue("{SEASON_YEAR-3}-{SEASON_YEAR-2}"),
-                                                    glue("{SEASON_YEAR-2}-{SEASON_YEAR-1}"),
-                                                    glue("{SEASON_YEAR-1}-{SEASON_YEAR}"))
-                                                ),
-                                                selected = c(SEASON_YEAR - 2, SEASON_YEAR - 1, SEASON_YEAR)
-                             )
-                      ),
-                      column(4,
-                             br(),
-                             checkboxInput("full_train",
-                                           "Full train mode (use all data, deploy-ready)",
-                                           value = TRUE),
-                             actionButton("train_btn", "Train Model",
-                                          class = "btn-warning btn-block", icon = icon("cogs"))
-                      )
-                    ),
-                    verbatimTextOutput("train_log")
-                )
-        ),
+      # ── Today's picks ────────────────────────────────────────────────────────
+      tabItem("picks",
+              box(width = 12, title = "Today's Picks", status = "success",
+                  fluidRow(
+                    column(3, actionButton("refresh_picks", "Refresh lines now",
+                                           class = "btn-primary btn-block", icon = icon("sync"))),
+                    column(9, uiOutput("picks_header"))
+                  ),
+                  radioButtons("picks_filter", NULL, inline = TRUE,
+                               choices = c("All games" = "all", "Bets and Leans" = "leans", "Bets only" = "bets"),
+                               selected = "all"),
+                  uiOutput("picks_cards"),
+                  tags$details(class = "picks-help",
+                    tags$summary("How to read this"),
+                    p("BET = the model's edge, after shrinking toward the market, is worth at least +2% expected value. ",
+                      "LEAN = positive but too small to bet. NO BET = no edge. Edge is the gap in points between the ",
+                      "model and the line, before shrinking."),
+                    p("'open basis' means the line has not moved since it opened and tip-off is more than 3 hours away, ",
+                      "so the measured opening-line weights apply. 'close basis' means the market has moved or game time ",
+                      "is near, so the much smaller closing-line weights apply (these are almost never bets)."),
+                    p("Stake is the suggested share of your bankroll (quarter-Kelly, capped at 3%). ",
+                      "Lines move: always check your book before betting.")
+                  )
+              )
+      ),
       
       # ── Stats ────────────────────────────────────────────────────────────────
       tabItem("stats",
@@ -137,7 +145,7 @@ ui <- dashboardPage(
               fluidRow(
                 box(width = 12, title = "Model Evaluation — Held-Out Test Set",
                     status = "info",
-                    p("Metrics computed on the most recent 20% of games, never seen during training."),
+                    p("Walk-forward backtest: each season is predicted by models trained only on earlier seasons."),
                     uiOutput("eval_summary")
                 )
               )

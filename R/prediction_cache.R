@@ -221,7 +221,7 @@ deploy_lockbot <- function(app_name  = "lockbot",
     rsconnect::deployApp(
       appDir   = ".",
       appName  = app_name,
-      appFiles = c(
+      appFiles = Filter(\(f) file.exists(f) || dir.exists(f), c(    # skip anything not present (e.g. picks.csv before first run)
         "app.R", "global.R", "packages.R",
         ".Renviron",
         "R/",
@@ -229,8 +229,13 @@ deploy_lockbot <- function(app_name  = "lockbot",
         "server/",
         "www/",
         "data/models/",
-        "data/predictions_cache.rds"
-      ),
+        "data/predictions_cache.rds",
+        "data/predictions_v2.csv",
+        "data/predictions_v2.meta.json",
+        "data/eval_v2.json",
+        "data/picks.csv",
+        "data/team_map.csv"
+      )),
       forceUpdate = TRUE
     )
     message("\n✅ Deployment complete!")

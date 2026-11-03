@@ -1,0 +1,76 @@
+{
+ "walk_forward": [
+  {
+   "season": 2024,
+   "model": "blend",
+   "n": 5724,
+   "margin_MAE": 8.981,
+   "margin_RMSE": 11.345,
+   "winner_acc%": 71.9,
+   "total_MAE": 13.119
+  },
+  {
+   "season": 2025,
+   "model": "blend",
+   "n": 5748,
+   "margin_MAE": 8.949,
+   "margin_RMSE": 11.408,
+   "winner_acc%": 72.5,
+   "total_MAE": 12.928
+  },
+  {
+   "season": 2026,
+   "model": "blend",
+   "n": 5749,
+   "margin_MAE": 9.139,
+   "margin_RMSE": 11.528,
+   "winner_acc%": 71.9,
+   "total_MAE": 13.644
+  }
+ ],
+ "same_games_2026": [
+  {
+   "model": "DraftKings close",
+   "margin_MAE": 8.863,
+   "winner_acc%": 70.8,
+   "total_MAE": 13.323
+  },
+  {
+   "model": "KenPom fanmatch",
+   "margin_MAE": 8.987,
+   "winner_acc%": 70.3,
+   "total_MAE": 13.69
+  },
+  {
+   "model": "Lockbot 2.0 blend",
+   "margin_MAE": 8.985,
+   "winner_acc%": 70.1,
+   "total_MAE": 13.484
+  }
+ ],
+ "winprob_2026": {
+  "sigma": 11.521199495050105,
+  "table": [
+   {
+    "source": "DraftKings (de-vigged ML)",
+    "Brier": 0.1867,
+    "LogLoss": 0.5489
+   },
+   {
+    "source": "KenPom fanmatch",
+    "Brier": 0.1875,
+    "LogLoss": 0.5543
+   },
+   {
+    "source": "Lockbot 2.0 blend, calibrated",
+    "Brier": 0.1877,
+    "LogLoss": 0.5493
+   }
+  ]
+ },
+ "information_test": {
+  "b1": 1.0020330316036388,
+  "b2": 0.09788565192453119,
+  "t_b2": 1.3627009650651305
+ }
+}
