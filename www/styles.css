@@ -433,3 +433,12 @@ h1, h2, h3, h4, h5, h6, p, label, .text-muted {
 .bet-note { font-size: 0.78rem; color: var(--text-secondary); }
 
 .pick-price { font-size: 0.95rem; font-weight: 400; color: var(--text-secondary); }
+
+/* ── Header: one continuous bottom line across logo + navbar ──────────────── */
+.main-header { border-bottom: 1px solid var(--border) !important; }
+.main-header .logo, .main-header .navbar {
+  border-bottom: 0 !important;
+  height: 50px !important; min-height: 50px !important; line-height: 50px !important;
+  box-sizing: border-box !important;
+}
+.main-header .logo span, .main-header .logo .logo-lg { line-height: 50px !important; }
