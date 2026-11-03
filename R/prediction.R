@@ -81,6 +81,20 @@ run_training <- function(seasons   = c(SEASON_YEAR - 2,
 
 predict_game <- function(team_a, team_b, location = "neutral") {
   
+  # ── Lockbot 2.0 cache (written by lockbot2/make_cache.py) ───────────────────
+  if (exists("PREDICTION_CACHE_V2") && !is.null(PREDICTION_CACHE_V2)) {
+    cached <- lookup_cached_prediction_v2(team_a, team_b, location, PREDICTION_CACHE_V2)
+    if (is.null(cached))
+      stop(glue("No 2.0 prediction for {team_a} vs {team_b} (team missing from the cache)."))
+    kenpom_pred <- tryCatch({
+      fm <- get_fanmatch() |>
+        filter((Visitor == team_a & Home == team_b) |
+                 (Visitor == team_b & Home == team_a))
+      if (nrow(fm) > 0) fm[1, ] else NULL
+    }, error = \(e) NULL)
+    return(list(gnn = cached, kenpom = kenpom_pred, team_a = team_a, team_b = team_b))
+  }
+  
   # ── Deployed mode: serve from cache only, no API calls needed ──────────────
   if (!is.null(PREDICTION_CACHE)) {
     cached <- lookup_cached_prediction(team_a, team_b, location, PREDICTION_CACHE)

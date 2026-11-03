@@ -229,7 +229,10 @@ deploy_lockbot <- function(app_name  = "lockbot",
         "server/",
         "www/",
         "data/models/",
-        "data/predictions_cache.rds"
+        "data/predictions_cache.rds",
+        "data/predictions_v2.csv",
+        "data/predictions_v2.meta.json",
+        "data/eval_v2.json"
       ),
       forceUpdate = TRUE
     )

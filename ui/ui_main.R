@@ -7,7 +7,7 @@ ui <- dashboardPage(
                letter-spacing: 0.12em;
                text-transform: uppercase;
                color: #58a6ff;",
-      "LockBot 1.0"
+      "LockBot 2.0"
     ),
     titleWidth = 250
   ),
@@ -23,11 +23,11 @@ ui <- dashboardPage(
   ),
   
   dashboardBody(
-    tags$head(tags$title("LockBot 1.0"),
-              tags$script("document.title = 'LockBot 1.0';"),
+    tags$head(tags$title("LockBot 2.0"),
+              tags$script("document.title = 'LockBot 2.0';"),
               tags$link(rel = "stylesheet", type = "text/css", href = "styles.css"),
-              tags$meta(property = "og:title",       content = "LockBot 1.0"),
-              tags$meta(property = "og:description", content = "NCAA Basketball Score Predictor powered by a Graph Neural Network"),
+              tags$meta(property = "og:title",       content = "LockBot 2.0"),
+              tags$meta(property = "og:description", content = "NCAA Basketball Score Predictor powered by gradient-boosted models on KenPom and box-score form"),
               tags$meta(property = "og:image",       content = "https://bryanjacobs.shinyapps.io/lockbot/preview.png"),
               tags$meta(property = "og:type",        content = "website"),
               tags$meta(name = "twitter:card",       content = "summary_large_image"),
@@ -62,26 +62,34 @@ ui <- dashboardPage(
               ),
               fluidRow(
                 box(width = 12, title = "Betting Analysis", status = "info",
+                    p(class = "text-muted", style = "font-size: 0.82rem;",
+                      "Enter the lines from your sportsbook. Edges are shrunk toward the market line ",
+                      "because the closing line is hard to beat (see the Model Evaluation tab). ",
+                      "Most games will honestly say NO BET."),
                     fluidRow(
-                      column(3,
-                             selectInput("bet_team", "Team to Bet On",
-                                         choices = c("Select after predicting" = ""),
-                                         width = "100%")
-                      ),
-                      column(3,
-                             numericInput("bet_spread", "Point Spread (negative = favorite)",
-                                          value = -3.5, step = 0.5, width = "100%")
-                      ),
-                      column(3,
-                             numericInput("bet_moneyline", "Moneyline (e.g. -150 or +130)",
-                                          value = -150, step = 5, width = "100%")
-                      ),
-                      column(3,
-                             br(),
-                             actionButton("analyze_bet_btn", "Analyze Bet",
-                                          class = "btn-primary btn-block",
-                                          icon = icon("dollar-sign"))
-                      )
+                      column(3, selectInput("bet_team", "Team (spread & moneyline)",
+                                            choices = c("Select after predicting" = ""), width = "100%")),
+                      column(3, numericInput("bet_spread", "Spread for that team (-3.5 = favorite)",
+                                             value = -3.5, step = 0.5, width = "100%")),
+                      column(3, numericInput("bet_spread_odds", "Spread price", value = -110, step = 5, width = "100%")),
+                      column(3, numericInput("bet_moneyline", "Moneyline for that team", value = -150, step = 5, width = "100%"))
+                    ),
+                    fluidRow(
+                      column(3, numericInput("bet_total", "Over/Under line", value = 145.5, step = 0.5, width = "100%")),
+                      column(3, numericInput("bet_total_odds", "Over/Under price", value = -110, step = 5, width = "100%")),
+                      column(3, numericInput("bankroll", "Bankroll ($)", value = 1000, min = 0, step = 100, width = "100%")),
+                      column(3, br(), actionButton("analyze_bet_btn", "Analyze Bets",
+                                                   class = "btn-primary btn-block", icon = icon("dollar-sign")))
+                    ),
+                    fluidRow(
+                      column(6, sliderInput("w_spread", "Trust in model vs. market: spread & moneyline (%)",
+                                            min = 0, max = 50, value = 10, step = 5, width = "100%"),
+                             p(class = "text-muted", style = "font-size: 0.75rem;",
+                               "Measured on 4,751 games: about 10% (uncertainty roughly 0 to 25%).")),
+                      column(6, sliderInput("w_total", "Trust in model vs. market: over/under (%)",
+                                            min = 0, max = 50, value = 0, step = 5, width = "100%"),
+                             p(class = "text-muted", style = "font-size: 0.75rem;",
+                               "Measured: about 1%. The model has not beaten the totals market."))
                     ),
                     uiOutput("bet_analysis")
                 )

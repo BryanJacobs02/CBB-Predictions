@@ -1,7 +1,12 @@
 server <- function(input, output, session) {
   
   teams_data <- reactive({ get_teams() })
-  team_names <- reactive({ sort(teams_data()$TeamName) })
+  team_names <- reactive({
+    nm <- sort(teams_data()$TeamName)
+    # only offer teams the 2.0 cache can predict
+    if (!is.null(PREDICTION_CACHE_V2)) nm <- intersect(nm, unique(PREDICTION_CACHE_V2$df$team_a))
+    nm
+  })
   
   output$team_picker_a <- renderUI({
     team_selector("team_a", "Team A", team_names())
@@ -14,7 +19,7 @@ server <- function(input, output, session) {
   # ── Prediction ─────────────────────────────────────────────────────────────
   prediction <- eventReactive(input$predict_btn, {
     req(input$team_a, input$team_b)
-    withProgress(message = "Running GNN prediction...", {
+    withProgress(message = "Running prediction...", {
       predict_game(input$team_a, input$team_b,
                    location = input$game_location)
     })
@@ -92,27 +97,12 @@ server <- function(input, output, session) {
   })
   
   output$wp_gauge <- renderPlotly({
-    p <- prediction()
-    g <- p$gnn
-    plot_ly(
-      type  = "indicator",
-      mode  = "gauge+number",
-      value = round(g$win_prob_a * 100, 1),
-      title = list(text = glue("{p$team_a} Win Prob (%) — derived from margin"),
-                   font = list(size = 11)),
-      number = list(font = list(size = 24)),
-      gauge = list(
-        axis  = list(range = list(0, 100), tickfont = list(size = 10)),
-        bar   = list(color = "#4CAF50"),
-        steps = list(
-          list(range = c(0,  40), color = "#ffcdd2"),
-          list(range = c(40, 60), color = "#fff9c4"),
-          list(range = c(60,100), color = "#c8e6c9")
-        ),
-        threshold = list(line = list(color = "red", width = 4), value = 50)
-      )
-    ) |>
-      layout(margin = list(l = 20, r = 20, t = 50, b = 20), height = 250)
+    p   <- prediction()
+    g   <- p$gnn
+    aes <- get_team_aesthetics()
+    wp_donut_plot(p$team_a, p$team_b, g$win_prob_a,
+                  get_team_color(p$team_a, aes, primary = TRUE),
+                  get_team_color(p$team_b, aes, primary = TRUE))
   })
   
   output$stat_comparison <- renderPlotly({
@@ -156,18 +146,10 @@ server <- function(input, output, session) {
     
     stats_long <- bind_rows(rows)
     
-    plot_ly(stats_long, x = ~Stat, y = ~value, color = ~TeamName,
-            type = "bar",
-            text = ~glue("{value}th percentile"),
-            hoverinfo = "text+x+name") |>
-      layout(
-        barmode = "group",
-        title   = glue("{p$team_a} vs {p$team_b}"),
-        yaxis   = list(title = "Percentile rank (100 = best)",
-                       range = c(0, 100)),
-        xaxis   = list(title = ""),
-        legend  = list(orientation = "h", y = -0.2)
-      )
+    aes <- get_team_aesthetics()
+    stat_comparison_plot(stats_long, p$team_a, p$team_b,
+                         get_team_color(p$team_a, aes, primary = TRUE),
+                         get_team_color(p$team_b, aes, primary = TRUE))
   })
   
   # ── Update bet team choices after prediction ──────────────────────────────
@@ -179,81 +161,65 @@ server <- function(input, output, session) {
     )
   })
   
-  # ── Betting analysis ───────────────────────────────────────────────────────
+  # ── Betting analysis (spread, moneyline, over/under) ───────────────────────
   observeEvent(input$analyze_bet_btn, {
-    req(prediction(), input$bet_team, input$bet_spread, input$bet_moneyline)
-    p          <- prediction()
-    g          <- p$gnn
-    bet_team   <- input$bet_team
-    spread     <- input$bet_spread
-    moneyline  <- input$bet_moneyline
+    req(prediction(), input$bet_team, input$bet_spread, input$bet_moneyline, input$bet_total)
+    p        <- prediction()
+    g        <- p$gnn
+    bet_team <- input$bet_team
+    is_a     <- bet_team == p$team_a
+    opp      <- if (is_a) p$team_b else p$team_a
+    m_bet    <- if (is_a) g$pred_score_a - g$pred_score_b else g$pred_score_b - g$pred_score_a
+    wp_bet   <- if (is_a) g$win_prob_a else g$win_prob_b
+    t_model  <- g$pred_score_a + g$pred_score_b
+    bank     <- if (is.null(input$bankroll) || is.na(input$bankroll)) 0 else input$bankroll
+    w_s      <- input$w_spread / 100
+    w_t      <- input$w_total / 100
     
-    # Determine if bet team is home (team_a) or away (team_b)
-    is_home    <- bet_team == p$team_a
-    pred_score <- if (is_home) g$pred_score_a else g$pred_score_b
-    opp_score  <- if (is_home) g$pred_score_b else g$pred_score_a
-    pred_margin <- pred_score - opp_score  # positive = bet team wins
+    sp <- spread_bet(m_bet, input$bet_spread, input$bet_spread_odds, weight = w_s)
+    ml <- moneyline_bet(wp_bet, input$bet_moneyline, weight = w_s)
+    ou <- total_bet(t_model, input$bet_total, input$bet_total_odds, weight = w_t)
     
-    # ── Spread analysis ──────────────────────────────────────────────────────
-    # Negative spread means bet team is favorite (must win by more than |spread|)
-    # Positive spread means bet team is underdog (can lose by less than spread)
-    spread_cover <- pred_margin > -spread  # covers if margin beats the spread
-    spread_diff  <- pred_margin - (-spread)  # how much better/worse than spread
-    
-    spread_class   <- if (spread_cover) "yes" else "no"
-    spread_verdict <- if (spread_cover) "COVER ✓" else "NO COVER ✗"
-    spread_detail  <- glue(
-      "Model predicts {bet_team} by {round(pred_margin, 1)} pts. ",
-      "Spread: {ifelse(spread > 0, '+', '')}{spread}. ",
-      "Edge: {ifelse(spread_diff > 0, '+', '')}{round(spread_diff, 1)} pts"
-    )
-    
-    # ── Moneyline analysis ───────────────────────────────────────────────────
-    # Convert moneyline to implied probability
-    ml_implied_prob <- if (moneyline < 0) {
-      abs(moneyline) / (abs(moneyline) + 100)
-    } else {
-      100 / (moneyline + 100)
+    fmt_pts <- function(x) paste0(ifelse(x > 0, "+", ""), round(x, 1))
+    fmt_odds <- function(x) paste0(ifelse(x > 0, "+", ""), x)
+    box_for <- function(label, side, r, headline) {
+      cls <- c(bet = "yes", lean = "neutral", none = "no")[[r$call]]
+      verdict <- switch(r$call,
+        bet  = glue("BET {side}"),
+        lean = glue("LEAN {side} (too small)"),
+        none = "NO BET")
+      dollars <- if (bank > 0) paste0(" ($", format(round(bank * r$stake), big.mark = ","), ")") else ""
+      stake <- ""
+      if (r$call == "bet")
+        stake <- paste0(" Suggested stake: ", scales::percent(r$stake, 0.1), " of bankroll", dollars, ".")
+      detail <- glue(
+        "{headline} ",
+        "Win chance after shrinking: {scales::percent(r$p_win, 0.1)} ",
+        "vs. {scales::percent(r$breakeven, 0.1)} needed at {fmt_odds(r$odds)}. ",
+        "Expected value: {ifelse(r$ev > 0, '+', '')}{round(100 * r$ev, 1)}% per dollar.{stake}")
+      bet_box(label, verdict, detail, cls)
     }
-    
-    model_win_prob <- if (is_home) g$win_prob_a else g$win_prob_b
-    edge <- model_win_prob - ml_implied_prob
-    
-    # Kelly criterion for bet sizing suggestion
-    # Kelly fraction = (bp - q) / b where b = decimal odds - 1
-    decimal_odds <- if (moneyline < 0) {
-      100 / abs(moneyline) + 1
-    } else {
-      moneyline / 100 + 1
-    }
-    b <- decimal_odds - 1
-    kelly_fraction <- (b * model_win_prob - (1 - model_win_prob)) / b
-    kelly_pct <- max(0, kelly_fraction) * 100
-    
-    ml_class   <- if (edge > 0.03) "yes" else if (edge > 0) "neutral" else "no"
-    ml_verdict <- if (edge > 0.03) "VALUE ✓" else if (edge > 0) "SLIGHT EDGE" else "NO VALUE ✗"
-    ml_detail  <- glue(
-      "Model win prob: {scales::percent(model_win_prob, 0.1)}. ",
-      "Line implied: {scales::percent(ml_implied_prob, 0.1)}. ",
-      "Edge: {ifelse(edge > 0, '+', '')}{scales::percent(edge, 0.1)}. ",
-      "{if (kelly_pct > 0) glue('Kelly: {round(kelly_pct, 1)}% of bankroll') ",
-      "else 'Kelly: no bet'}"
-    )
     
     output$bet_analysis <- renderUI({
       tagList(
         hr(style = "border-color: var(--border); margin: 16px 0;"),
         fluidRow(
-          column(6, bet_box("Spread Analysis", spread_verdict,
-                            spread_detail, spread_class)),
-          column(6, bet_box("Moneyline Analysis", ml_verdict,
-                            ml_detail, ml_class))
+          column(4, box_for("Spread", bet_team, sp,
+                            glue("Model: {bet_team} {fmt_pts(m_bet)} vs. {opp}; line {fmt_pts(input$bet_spread)}. ",
+                                 "Raw edge {fmt_pts(sp$raw_edge)} pts."))),
+          column(4, box_for("Moneyline", bet_team, ml,
+                            glue("Model win prob {scales::percent(wp_bet, 0.1)} vs. market ",
+                                 "{scales::percent(ml$market_p, 0.1)} (de-vigged)."))),
+          column(4, box_for("Over / Under", paste(ou$side, input$bet_total), ou,
+                            glue("Model total {round(t_model, 1)} vs. line {input$bet_total}. ",
+                                 "Raw edge {fmt_pts(ou$raw_edge)} pts.")))
         ),
         div(
           class = "alert alert-secondary",
           style = "margin-top: 8px; font-size: 0.78rem;",
           icon("exclamation-triangle"),
-          " Model MAE is ~8.7 pts. Use as one input among many — not financial advice."
+          " Model margin error is about 9 pts per game, close to but not better than the market's. ",
+          "Stakes use quarter-Kelly capped at 3% of bankroll. Not financial advice."
         )
       )
     })
@@ -307,50 +273,51 @@ server <- function(input, output, session) {
                 rownames = FALSE)
   })
   
-  # ── Model Evaluation ───────────────────────────────────────────────────────
-  eval_metrics <- reactive({
-    # Re-read after every training run
-    input$train_btn
-    
-    meta_path <- file.path(getwd(), "data", "models", "meta.pkl")
-    req(file.exists(meta_path))
-    
-    builtins <- import_builtins()
-    pickle   <- import("pickle")
-    fh       <- builtins$open(meta_path, "rb")
-    meta     <- pickle$load(fh)
-    fh$close()
-    meta
+  # ── Model Evaluation (walk-forward backtest, see lockbot2/README.md) ───────
+  df_table <- function(df, digits = 2) {
+    cell <- function(x) if (is.numeric(x)) format(round(x, digits), nsmall = digits) else as.character(x)
+    tags$table(
+      class = "table table-condensed",
+      tags$thead(tags$tr(lapply(names(df), tags$th))),
+      tags$tbody(lapply(seq_len(nrow(df)), function(i)
+        tags$tr(lapply(df[i, ], function(v) tags$td(cell(v))))))
+    )
+  }
+  
+  eval_data <- reactive({
+    path <- "data/eval_v2.json"
+    req(file.exists(path))
+    jsonlite::fromJSON(path)
   })
   
   output$eval_summary <- renderUI({
-    m  <- eval_metrics()
-    tm <- m$test_metrics
-    
+    e   <- eval_data()
+    wf  <- e$walk_forward
+    sg  <- e$same_games_2026
+    wp  <- e$winprob_2026$table
+    inf <- e$information_test
+    last <- wf[wf$season == max(wf$season), ]
     tagList(
       fluidRow(
-        column(3, result_card("Winner Accuracy",
-                              scales::percent(tm$accuracy, accuracy = 0.1),
-                              subtitle = "Derived from predicted margin",
+        column(3, result_card("Winner Accuracy", paste0(last[["winner_acc%"]], "%"),
+                              subtitle = glue("{last$season} season, never seen in training"),
                               color = "#4CAF50")),
-        column(3, result_card("Score MAE",
-                              glue("{round(tm$mae_points, 2)} pts"),
-                              subtitle = "Avg error per team per game",
-                              color = "#2196F3")),
-        column(3, result_card("Margin MAE",
-                              glue("{round(tm$mae_margin, 2)} pts"),
-                              subtitle = "Avg error in point differential",
-                              color = "#FF9800")),
-        column(3, result_card("RMSE",
-                              glue("{round(tm$rmse_points, 2)} pts"),
-                              subtitle = "Penalizes large misses more",
+        column(3, result_card("Margin MAE", glue("{round(last$margin_MAE, 2)} pts"),
+                              subtitle = "Avg error in point differential", color = "#FF9800")),
+        column(3, result_card("Total MAE", glue("{round(last$total_MAE, 2)} pts"),
+                              subtitle = "Avg error in combined score", color = "#2196F3")),
+        column(3, result_card("Games tested", format(last$n, big.mark = ","),
+                              subtitle = glue("{min(wf$season)}-{max(wf$season)} walk-forward"),
                               color = "#9C27B0"))
       ),
-      fluidRow(
-        column(6, p(class = "text-muted",
-                    glue("Train: {m$n_train} | Test: {m$n_test} | ",
-                         "Trained: {m$trained_date}")))
-      )
+      h4("Same games, 2026 (head to head)"),
+      df_table(sg, 2),
+      h4("Win probability quality (lower is better)"),
+      df_table(wp, 4),
+      p(class = "text-muted",
+        glue("Does the model know something the closing line does not? Weight on model-minus-market: ",
+             "{round(inf$b2, 2)} (t = {round(inf$t_b2, 1)}). That is suggestive, not significant. ",
+             "Treat the model as a good independent estimate, not a proven edge."))
     )
   })
 }
