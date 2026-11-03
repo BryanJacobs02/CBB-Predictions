@@ -16,9 +16,9 @@ get_team_aesthetics <- memoise::memoise(function(season = SEASON_YEAR) {
       dplyr::rename(espn_name = display_name)
     
     # Join to KenPom names via crosswalk
-    feats      <- build_feature_matrix()
+    kp_names   <- read.csv("data/team_map.csv", stringsAsFactors = FALSE)$kp_name   # 2.0 team list, no API call
     espn_teams <- raw$espn_name
-    crosswalk  <- build_name_crosswalk(feats$TeamName, espn_teams)
+    crosswalk  <- build_name_crosswalk(kp_names, espn_teams)
     matched    <- crosswalk |> dplyr::filter(!is.na(espn))
     espn_to_kp <- setNames(matched$kenpom, matched$espn)
     

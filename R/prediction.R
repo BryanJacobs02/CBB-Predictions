@@ -10,8 +10,8 @@ for mod in ['train', 'predict', 'gnn_model']:
     if mod in sys.modules:
         del sys.modules[mod]
 ")
-    py_train   <<- import_from_path("train",   path = "python")
-    py_predict <<- import_from_path("predict", path = "python")
+    py_train   <<- import_from_path("train",   path = "legacy_v1/python")
+    py_predict <<- import_from_path("predict", path = "legacy_v1/python")
   }
 }
 

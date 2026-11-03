@@ -66,7 +66,7 @@ Player-level features (rotation absences, returning minutes, transfers) and extr
 │   ├── betting_v2.R          # edge / EV / Kelly math and measured line weights
 │   ├── picks.R               # builds the daily pick list from live ESPN lines
 │   ├── plots_v2.R            # dark-theme win-probability and stat charts
-│   └── kenpom_api.R, team_data.R, prediction.R, ...   # data access and 1.0 code
+│   └── kenpom_api.R, team_data.R, game_results.R   # data access; prediction.R / prediction_cache.R still hold 1.0 fallbacks
 ├── lockbot2/                 # model pipeline (see lockbot2/README.md)
 │   ├── build_dataset.py, box_features.py, team_match.py
 │   ├── make_cache.py, refresh.py, eval_blend.py
@@ -74,7 +74,7 @@ Player-level features (rotation absences, returning minutes, transfers) and extr
 ├── scripts/                  # refresh_data.R, refresh.sh, make_picks.R, export/odds pulls
 ├── data/                     # predictions_v2.csv, team_map.csv, eval_v2.json
 ├── ui/, server/, www/        # dashboard layout, server logic, dark theme
-└── python/                   # LockBot 1.0 GNN (legacy, not used by 2.0)
+└── legacy_v1/                # LockBot 1.0 GNN (python/, feature + graph builders); not used by 2.0
 ```
 
 ## How to Run Locally
