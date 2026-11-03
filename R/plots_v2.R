@@ -103,19 +103,19 @@ stat_comparison_plot <- function(stats_long, team_a, team_b, color_a, color_b) {
   ) |>
     lockbot_plot_theme(
       barmode = "group", bargap = 0.35, bargroupgap = 0.08,
-      margin = list(l = 45, r = 10, t = 30, b = 10),
+      margin = list(l = 45, r = 10, t = 40, b = 55),
       yaxis = list(title = "", range = c(0, 112), tickvals = c(0, 25, 50, 75, 100),
                    gridcolor = LB$border, zeroline = FALSE, fixedrange = TRUE,
                    tickfont = list(color = LB$text2)),
       xaxis = list(title = "", fixedrange = TRUE, tickfont = list(color = LB$text, size = 14),
                    categoryorder = "array", categoryarray = unique(stats_long$Stat)),
-      legend = list(orientation = "h", x = 0.5, xanchor = "center", y = 1.12,
+      legend = list(orientation = "h", x = 0.5, xanchor = "center", y = -0.12, yanchor = "top",
                     font = list(size = 14, color = LB$text)),
       shapes = list(list(type = "line", xref = "paper", x0 = 0, x1 = 1, y0 = 50, y1 = 50,
                          line = list(color = LB$text2, width = 1, dash = "dot"))),
       annotations = list(list(text = "percentile rank among D1 teams (100 = best; for tempo, 100 = fastest)",
-                              x = 0, y = 1.12, xref = "paper", yref = "paper",
-                              xanchor = "left", showarrow = FALSE,
+                              x = 0, y = 1.06, xref = "paper", yref = "paper",
+                              xanchor = "left", yanchor = "bottom", showarrow = FALSE,
                               font = list(size = 12, color = LB$text2)))
     )
 }
