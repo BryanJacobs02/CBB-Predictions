@@ -10,3 +10,9 @@ __pycache__/
 data/models/*.pt
 data/models/*.pkl
 data/predictions_cache.rds
+
+# Lockbot 2.0 data pulls (large, regenerable)
+lockbot_export/
+lockbot_export.zip
+lockbot_odds/
+lockbot_odds.zip
