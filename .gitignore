@@ -16,3 +16,5 @@ lockbot_export/
 lockbot_export.zip
 lockbot_odds/
 lockbot_odds.zip
+lockbot2/out/
+__pycache__/
