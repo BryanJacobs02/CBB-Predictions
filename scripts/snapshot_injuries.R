@@ -28,8 +28,11 @@ CORE  <- "https://sports.core.api.espn.com/v2/sports/basketball/leagues/mens-col
 get_json <- function(url, query = list()) {
   Sys.sleep(0.3)
   tryCatch({
-    resp <- request(url) |> req_url_query(!!!query) |> req_user_agent("lockbot-injury-snapshot") |>
+    resp <- request(url) |> req_url_query(!!!query) |> req_user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36") |>
+      req_headers(Accept = "application/json") |>
       req_timeout(30) |> req_error(is_error = \(r) FALSE) |> req_perform()
+    if (resp_status(resp) != 200)
+      message(glue("  HTTP {resp_status(resp)} for {url}: {substr(resp_body_string(resp), 1, 160)}"))
     list(status = resp_status(resp),
          text = if (resp_status(resp) == 200) resp_body_string(resp) else NA_character_)
   }, error = function(e) list(status = NA_integer_, text = NA_character_, err = conditionMessage(e)))
