@@ -194,6 +194,9 @@ def main():
         out[f"win_prob_{loc}"] = norm.cdf(out[f"margin_{loc}"] / sigma)
     out = out.round({c: 3 for c in out.columns if c not in ("team_a", "team_b")})
     out.attrs["sigma"] = sigma
+    # ESPN team id -> KenPom name, so R scripts can place ESPN games in this cache
+    tm = S.reset_index().rename(columns={"index": "kp_name", "TeamName": "kp_name"})[["kp_name", "espn_id"]]
+    tm.to_csv(Path(a.out).parent / "team_map.csv", index=False)
 
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     out.to_csv(a.out, index=False)

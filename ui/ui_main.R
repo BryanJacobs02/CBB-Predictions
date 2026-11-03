@@ -15,6 +15,7 @@ ui <- dashboardPage(
   dashboardSidebar(
     do.call(sidebarMenu, Filter(Negate(is.null), list(
       menuItem("Predict Matchup",  tabName = "predict", icon = icon("basketball-ball")),
+      menuItem("Today's Picks",    tabName = "picks",   icon = icon("list-ol")),
       menuItem("Team Stats",       tabName = "stats",   icon = icon("table")),
       menuItem("Model Evaluation", tabName = "eval",    icon = icon("chart-line"))
     )))
@@ -95,6 +96,22 @@ ui <- dashboardPage(
                     ),
                     uiOutput("bet_analysis")
                 )
+              )
+      ),
+      
+      # ── Today's picks ────────────────────────────────────────────────────────
+      tabItem("picks",
+              box(width = 12, title = "Today's Picks", status = "success",
+                  uiOutput("picks_header"),
+                  checkboxInput("picks_only_bets", "Only show games with a BET or LEAN", value = FALSE),
+                  DTOutput("picks_table"),
+                  p(class = "text-muted", style = "font-size: 0.78rem; margin-top: 10px;",
+                    "BET = the model's edge, after shrinking toward the market, is worth at least +2% expected value. ",
+                    "LEAN = positive but too small. Edge is in points between the model and the line (before shrinking). ",
+                    "Basis: 'open' means the line has not moved since it opened and tip-off is more than 3 hours away, ",
+                    "so the measured opening-line weights apply; 'close' means the market has moved or game time is near, ",
+                    "so the much smaller closing-line weights apply. Stake is the suggested share of bankroll ",
+                    "(quarter-Kelly, capped at 3%).")
               )
       ),
       
