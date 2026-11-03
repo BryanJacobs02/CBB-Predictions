@@ -67,14 +67,16 @@ spread_bet <- function(model_margin, line, odds = -110,
 }
 
 # Totals: evaluate Over and Under, return the better side.
+# `odds` is the Over price; `odds_under` is the Under price (defaults to the same number).
 total_bet <- function(model_total, line, odds = -110,
                       weight = BET_PARAMS$weight_total,
-                      sigma = BET_PARAMS$sigma_total) {
+                      sigma = BET_PARAMS$sigma_total,
+                      odds_under = odds) {
   raw_edge  <- model_total - line                   # positive = model says Over
   fair_edge <- weight * raw_edge
   p_over    <- stats::pnorm(fair_edge / sigma)
   over      <- bet_value(p_over, odds)
-  under     <- bet_value(1 - p_over, odds)
+  under     <- bet_value(1 - p_over, odds_under)
   side      <- if (over$ev >= under$ev) "Over" else "Under"
   c(list(side = side, raw_edge = raw_edge, fair_edge = fair_edge),
     if (side == "Over") over else under)
