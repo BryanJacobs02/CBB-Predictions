@@ -35,8 +35,6 @@ cache <- cache_mem(max_age = 3600)
 
 # ── Source modules ────────────────────────────────────────────────────────────
 source("R/kenpom_api.R")
-source("R/feature_engineering.R")
-source("R/graph_builder.R")
 source("R/game_results.R")
 source("R/prediction_cache.R")
 source("R/prediction_cache_v2.R")
