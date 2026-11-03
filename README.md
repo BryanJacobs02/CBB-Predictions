@@ -98,16 +98,28 @@ KENPOM_API_KEY=your_key_here
 shiny::runApp()
 ```
 
-### Weekly refresh and deploy
+### Refreshing the predictions (weekly, or twice a week in season)
 
+The app's predictions come from a saved file, so they only change when you refresh. **What a refresh does:**
+1. Pulls this season's newest KenPom ratings and ESPN schedule and results.
+2. Downloads the latest box scores.
+3. Rebuilds the training table and retrains the model on every game played so far.
+4. Rewrites `data/predictions_v2.csv` with new predictions for every team pairing.
+
+It takes a few minutes. Today's Picks does not need it, because that tab pulls live lines every time you open it.
+
+**How to do it** (Terminal, in the project folder, the one containing `app.R`):
 ```bash
-bash scripts/refresh.sh          # pulls fresh data, retrains, rewrites data/predictions_v2.csv
+bash scripts/refresh.sh                       # steps 1-4 above
+git add data/ && git commit -m "Refresh predictions" && git push
 ```
+Then in the R console, to publish to shinyapps.io:
 ```r
-source("global.R"); deploy_lockbot()    # publish to shinyapps.io
+source("global.R"); deploy_lockbot()
 ```
+After the season ends, run the refresh once more so the final ratings are saved for next season. If it stops with an "unmatched team" error, a new or renamed team needs adding to `lockbot2/team_match.py`.
 
-The first time, run `scripts/export_lockbot_data.R` to create the historical export (`lockbot_export/`) that the refresh builds on.
+The first time only, run `scripts/export_lockbot_data.R` to create the historical export (`lockbot_export/`) that the refresh builds on.
 
 ## Data Sources
 
