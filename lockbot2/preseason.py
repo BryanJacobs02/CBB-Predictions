@@ -15,6 +15,11 @@ Roster information comes from ESPN player box scores (sportsdataverse player_box
 "Roster" = players who appeared in the team's first K games this season (K=1: available after one game; using
 K=2 or 3 changes nothing). A team with no games yet falls back to a prior-only projection.
 
+When KenPom's own preseason ratings are available (scripts/pull_preseason.R -> kp_preseason.csv) the starting AdjEM is
+the average of our projection and KenPom's: on games where a team still used preseason ratings the margin MAE is
+10.08 averaged vs 10.14 ours alone and 10.15 KenPom's alone (KenPom alone also hurt early totals). KenPom's preseason
+rating is the better single predictor of a team's final rating (RMSE 5.9 vs 6.3), but the average is best on games.
+
 AdjEM is a ridge regression of the season's FINAL KenPom AdjEM on those
 features plus last season's and the previous season's final ratings. Walk-forward: a season is projected by models
 fit on EARLIER seasons only (the first projectable season uses the other seasons, since nothing precedes it).
@@ -22,6 +27,7 @@ Leave-one-season-out RMSE on final AdjEM: 7.61 (last year's rating as-is) -> 7.3
 -> 6.25 (with roster features and the elite hinge; bias for teams rated 20+ is about +0.1 pts).
 """
 import glob
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -103,15 +109,26 @@ def team_season_table(final, roster, id_map):
     return t.merge(f, on=["TeamName", "season"], how="left")
 
 
+def load_kp_preseason(export_dir):
+    """KenPom's own preseason AdjEM per (TeamName, season) from scripts/pull_preseason.R, or None if not pulled.
+    Only AdjEM is read: that file also carries the season's Seed/Event/*Final columns, which must never be used."""
+    f = Path(export_dir) / "kp_preseason.csv"
+    if not f.exists():
+        return None
+    k = pd.read_csv(f, usecols=["TeamName", "season", "AdjEM"]).rename(columns={"AdjEM": "kp_pre"})
+    return k.drop_duplicates(["TeamName", "season"])
+
+
 def _fit(tr, feats, target):
     sc = StandardScaler().fit(tr[feats])
     m = Ridge(alpha=10.0).fit(sc.transform(tr[feats]), tr[target])
     return sc, m
 
 
-def project(table, seasons, strict=True):
+def project(table, seasons, strict=True, kp=None):
     """Preseason projections for the given seasons -> DataFrame(TeamName, season, pre_<rating>...).
     strict: fit only on earlier seasons (falls back to all other seasons if there are none).
+    kp: optional load_kp_preseason() frame; the projected AdjEM is then the average of ours and KenPom's.
 
     Only AdjEM is regressed. The change it implies versus last year's rating is split evenly between offense and
     defense (AdjOE up / AdjDE down by half each), so AdjOE + AdjDE and tempo keep last year's values. Projecting
@@ -133,6 +150,9 @@ def project(table, seasons, strict=True):
         if has_r.any():
             pred = pred.copy()
             pred[has_r] = full[1].predict(full[0].transform(te.loc[has_r, PRIOR_FEATS + ROSTER_FEATS]))
+        if kp is not None:       # average with KenPom's own preseason rating where we have it
+            kpv = te[["TeamName", "season"]].merge(kp, on=["TeamName", "season"], how="left").kp_pre.values
+            pred = np.where(np.isnan(kpv), pred, (pred + kpv) / 2)
         pred = np.where(te.p_AdjEM.notna().values, pred, np.nan)
         delta = pred - te.p_AdjEM.values
         te["pre_AdjEM"] = pred

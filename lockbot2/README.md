@@ -86,8 +86,14 @@ change in AdjEM is split evenly between offense and defense, so the total (OE + 
 | total MAE, any window | unchanged | unchanged |
 | Brier, games on last year's ratings | 0.1078 | 0.1038 |
 
+With KenPom's own preseason ratings averaged in (below): prior-rating games 10.08, first 14 days 9.62, first 30 days 9.49.
+
 Projection RMSE for a team's final AdjEM: 7.61 (last year's rating as is) -> 7.37 (regressed to the mean) -> 6.25
 (with roster features); projected vs realized changes match across all size buckets.
+
+KenPom preseason ratings: `Rscript scripts/pull_preseason.R` saves them to `lockbot_export/kp_preseason.csv` (2022-2027);
+`scripts/refresh_data.R` adds each new season's once. The pipeline reads only the AdjEM column (the file also holds
+Seed/Event/*Final columns that would leak the season's outcome). If the file is missing the projection runs without it.
 
 Limits: it only sees minutes and box-score production, not recruiting rankings, injuries or portal hype, which the
 market prices in. Record-high prior ratings are capped at 35 inside the projection so one outlier cannot be extrapolated.

@@ -4,28 +4,28 @@
    "season": 2024,
    "model": "blend",
    "n": 5724,
-   "margin_MAE": 8.949,
-   "margin_RMSE": 11.301,
+   "margin_MAE": 8.952,
+   "margin_RMSE": 11.303,
    "winner_acc%": 72.1,
-   "total_MAE": 13.115
+   "total_MAE": 13.122
   },
   {
    "season": 2025,
    "model": "blend",
    "n": 5748,
-   "margin_MAE": 8.924,
-   "margin_RMSE": 11.357,
+   "margin_MAE": 8.922,
+   "margin_RMSE": 11.351,
    "winner_acc%": 72.4,
-   "total_MAE": 12.929
+   "total_MAE": 12.93
   },
   {
    "season": 2026,
    "model": "blend",
    "n": 5749,
-   "margin_MAE": 9.098,
-   "margin_RMSE": 11.478,
-   "winner_acc%": 72.1,
-   "total_MAE": 13.644
+   "margin_MAE": 9.093,
+   "margin_RMSE": 11.461,
+   "winner_acc%": 72.2,
+   "total_MAE": 13.641
   }
  ],
  "same_games_2026": [
@@ -43,13 +43,13 @@
   },
   {
    "model": "Lockbot 2.0 blend",
-   "margin_MAE": 8.979,
-   "winner_acc%": 70.2,
-   "total_MAE": 13.486
+   "margin_MAE": 8.98,
+   "winner_acc%": 70.3,
+   "total_MAE": 13.482
   }
  ],
  "winprob_2026": {
-  "sigma": 11.469687322718386,
+  "sigma": 11.453731434821039,
   "table": [
    {
     "source": "DraftKings (de-vigged ML)",
@@ -64,7 +64,7 @@
    {
     "source": "Lockbot 2.0 blend, calibrated",
     "Brier": 0.1876,
-    "LogLoss": 0.5492
+    "LogLoss": 0.5491
    }
   ]
  },

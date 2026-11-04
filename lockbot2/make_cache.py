@@ -84,7 +84,7 @@ def season_projection(d, E, player_dir, season):
     names = names.drop_duplicates("TeamName", keep="last")
     id_map = pd.concat([names.assign(season=y) for y in range(int(final.season.min()), season + 1)], ignore_index=True)
     roster = ps.roster_features(ps.load_players(player_dir))
-    proj = ps.project(ps.team_season_table(final, roster, id_map), [season])
+    proj = ps.project(ps.team_season_table(final, roster, id_map), [season], kp=ps.load_kp_preseason(E))
     n = int(roster[roster.season == season].shape[0])
     print(f"  preseason projection for {season}: roster info for {n} teams")
     return proj.set_index("TeamName")

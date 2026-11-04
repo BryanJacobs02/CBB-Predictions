@@ -132,7 +132,7 @@ def add_preseason(g, E, player_dir):
     ids = ids.drop_duplicates(["season", "TeamName"], keep="last")
     roster = ps.roster_features(ps.load_players(player_dir))
     table = ps.team_season_table(final, roster, ids)
-    proj = ps.project(table, sorted(g.season.unique()))
+    proj = ps.project(table, sorted(g.season.unique()), kp=ps.load_kp_preseason(E))
     for tag, col in (("h", "kp_home"), ("a", "kp_away")):
         pj = g[["game_id", "season", col]].rename(columns={col: "TeamName"}).merge(proj, on=["TeamName", "season"], how="left")
         for c in RATING_COLS:
