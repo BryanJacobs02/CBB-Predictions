@@ -65,6 +65,42 @@ season 9.358 -> 9.338. Differences are inside noise, so the shipped model does n
 Likely reason: the ratings and rolling team form already absorb most of what a lost rotation player does, and
 real injury news (which the market has) cannot be reconstructed from last night's box score.
 
+## Preseason ratings from roster turnover (`preseason.py`, shipped)
+
+Problem: before KenPom's first snapshot of a season (~Nov 8) the model only had LAST season's final ratings, so a team
+that lost its roster (e.g. a title team that graduated its stars) was still rated like last year's team.
+
+Fix: project each team's starting AdjEM from last year's final ratings plus roster turnover, using ESPN player box
+scores (no key needed): share of last year's minutes / production returning, the top-5 returners, returning rotation
+size, incoming transfers' minutes and production, and an "elite program" hinge (teams rated 15+ keep more than a straight
+line says). The roster is whoever appears in a team's first game, so it works from the day after opening night. The
+change in AdjEM is split evenly between offense and defense, so the total (OE + DE) and tempo keep last year's values.
+(Projecting OE, DE and tempo separately made early totals worse.) Ridge regression, fit on earlier seasons only.
+
+| walk-forward 2024-26 (blend) | before | after |
+|---|---|---|
+| margin MAE, games where a team still used last year's ratings (635) | 10.77 | 10.14 |
+| margin MAE, first 14 days (1,343 games) | 9.96 | 9.65 |
+| margin MAE, first 30 days (3,599 games) | 9.63 | 9.49 |
+| margin MAE, whole season | 9.023 | 8.990 |
+| total MAE, any window | unchanged | unchanged |
+| Brier, games on last year's ratings | 0.1078 | 0.1038 |
+
+With KenPom's own preseason ratings averaged in (below): prior-rating games 10.08, first 14 days 9.62, first 30 days 9.49.
+
+Projection RMSE for a team's final AdjEM: 7.61 (last year's rating as is) -> 7.37 (regressed to the mean) -> 6.25
+(with roster features); projected vs realized changes match across all size buckets.
+
+KenPom preseason ratings: `Rscript scripts/pull_preseason.R` saves them to `lockbot_export/kp_preseason.csv` (2022-2027);
+`scripts/refresh_data.R` adds each new season's once. The pipeline reads only the AdjEM column (the file also holds
+Seed/Event/*Final columns that would leak the season's outcome). If the file is missing the projection runs without it.
+
+Limits: it only sees minutes and box-score production, not recruiting rankings, injuries or portal hype, which the
+market prices in. Record-high prior ratings are capped at 35 inside the projection so one outlier cannot be extrapolated.
+Roster turnover has risen every year (returning minutes 51% in 2022 -> 29% in 2026 -> 26% so far in 2027), so
+2027 inputs sit at the edge of what the model has seen. It helps the first weeks only; after KenPom's first
+snapshot the model behaves as before.
+
 ## Keeping it current (refresh)
 
 ```
@@ -76,8 +112,9 @@ git add data/ && git commit -m "Refresh predictions" && git push
 `lockbot_export/`; `refresh.py` downloads box scores, rebuilds the table, retrains on every completed game and
 rewrites `data/predictions_v2.csv`. First time: `pip install -r lockbot2/requirements.txt`.
 Run it weekly (daily during conference play if you like). After the season ends, run it once more so the final
-ratings are saved; next season's early games use them. Preseason works: with no games yet, teams use last
-year's final ratings; if the home-court edge drifts above ~4.6 pts it is rescaled to 4.1.
+ratings are saved; next season's early games build on them. Preseason works: until KenPom's first snapshot (~Nov 8) a team's
+rating is a projection from last year's rating and roster turnover (next section); if the home-court edge drifts above
+~4.6 pts it is rescaled to 4.1. `refresh.py` also downloads player box scores for this (`lockbot_players/`, git-ignored).
 
 ## Injuries (no source)
 

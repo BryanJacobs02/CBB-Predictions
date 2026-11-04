@@ -95,4 +95,13 @@ if (nrow(snaps) > 0) replace_season("kp_archive_weekly.csv", snaps) else message
 message("\n[4/4] KenPom ratings")
 if (!is.null(live)) replace_season("kp_ratings.csv", mutate(live, season = SEASON))
 
+# ── 5. KenPom's preseason ratings for this season (pulled once; they never change) ──
+pre_file <- file.path(OUT, "kp_preseason.csv")
+have_pre <- if (file.exists(pre_file)) unique(read.csv(pre_file)$season) else integer()
+if (!(SEASON %in% have_pre)) {
+  message("\n[5/5] KenPom preseason ratings")
+  pre <- tryCatch(kenpom_get("archive", y = SEASON, preseason = "true"), error = function(e) { message("  ! ", conditionMessage(e)); NULL })
+  if (!is.null(pre) && nrow(pre) > 50) replace_season("kp_preseason.csv", mutate(pre, season = SEASON, pull_method = 1L))
+}
+
 message(glue("\nDone. Next:  python3 lockbot2/refresh.py"))

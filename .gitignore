@@ -24,3 +24,5 @@ lockbot_injuries/
 lockbot_box/
 data/picks.csv
 rsconnect/
+lockbot_players/
+.DS_Store

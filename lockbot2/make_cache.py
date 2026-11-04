@@ -26,6 +26,7 @@ from sklearn.preprocessing import StandardScaler
 
 sys.path.insert(0, str(Path(__file__).parent))
 import box_features as bf  # noqa: E402
+import preseason as ps  # noqa: E402
 from backtest_baselines import features  # noqa: E402
 
 KW = dict(n_estimators=500, learning_rate=0.02, num_leaves=12, min_child_samples=80,
@@ -71,7 +72,25 @@ def current_box_state(box_dir, season, asof):
     return out
 
 
-def team_states(d, E, box_dir, season, asof):
+def season_projection(d, E, player_dir, season):
+    """Preseason ratings for `season` from last year's ratings + roster turnover (None if player data is missing)."""
+    if not player_dir or not list(Path(player_dir).glob(f"player_box_{season}.parquet")):
+        print(f"  no player box scores for {season} yet: teams without a snapshot use last year's final ratings")
+        return None
+    final = pd.read_csv(E / "kp_ratings.csv", usecols=["TeamName", "season"] + ps.RATING)
+    names = pd.concat([d[["kp_home", "home_id"]].set_axis(["TeamName", "team_id"], axis=1),
+                       d[["kp_away", "away_id"]].set_axis(["TeamName", "team_id"], axis=1)]).dropna()
+    names["team_id"] = names.team_id.astype(float).astype("int64")       # ESPN ids are stable across seasons
+    names = names.drop_duplicates("TeamName", keep="last")
+    id_map = pd.concat([names.assign(season=y) for y in range(int(final.season.min()), season + 1)], ignore_index=True)
+    roster = ps.roster_features(ps.load_players(player_dir))
+    proj = ps.project(ps.team_season_table(final, roster, id_map), [season], kp=ps.load_kp_preseason(E))
+    n = int(roster[roster.season == season].shape[0])
+    print(f"  preseason projection for {season}: roster info for {n} teams")
+    return proj.set_index("TeamName")
+
+
+def team_states(d, E, box_dir, season, asof, proj=None):
     """One row per team with everything features() needs, as of `asof`."""
     snaps = pd.read_csv(E / "kp_archive_weekly.csv", usecols=["TeamName", "season", "snap_date"] + RATING)
     snaps["snap_date"] = pd.to_datetime(snaps.snap_date)
@@ -95,12 +114,18 @@ def team_states(d, E, box_dir, season, asof):
         r["mom"] = last.AdjEM - old.iloc[-1].AdjEM if len(old) else np.nan
         r["from_prior"] = 0
         rows[team] = r
-    for team in prior.index.difference(list(rows)):          # preseason: last year's final ratings
-        # No 2027 snapshot yet: treat last year's final ratings as a normal snapshot. (Training has few
+    for team in prior.index.difference(list(rows)):          # preseason: projected ratings (else last year's final)
+        # No snapshot yet: treat the preseason projection as a normal snapshot. (Training has few
         # from_prior=1 games, so flagging it would push the model into a barely-seen regime.)
-        rows[team] = {**prior.loc[team, RATING].to_dict(), "snap_age": 6.0, "mom": np.nan, "from_prior": 0}
+        if proj is not None and team in proj.index and proj.loc[team].notna().all():
+            base = {c: proj.loc[team, f"pre_{c}"] for c in RATING}
+        else:
+            base = prior.loc[team, RATING].to_dict()
+        rows[team] = {**base, "snap_age": 6.0, "mom": np.nan, "from_prior": 0}
     S = pd.DataFrame(rows).T.astype(float)
     S["prior_em"] = prior.AdjEM.reindex(S.index)
+    if proj is not None:                                      # the model's prior_AdjEM feature = projection, as in training
+        S["prior_em"] = proj.pre_AdjEM.reindex(S.index).fillna(S.prior_em)
 
     # schedule context from completed games before asof
     long = pd.concat([
@@ -141,6 +166,7 @@ def main():
     ap.add_argument("--data", required=True)
     ap.add_argument("--export-dir", required=True)
     ap.add_argument("--box-dir", required=True)
+    ap.add_argument("--player-dir", default=None, help="folder with player_box_{season}.parquet (preseason projection)")
     ap.add_argument("--season", type=int, default=2026)
     ap.add_argument("--asof", default=None, help="YYYY-MM-DD; default = day after the last game")
     ap.add_argument("--out", required=True)
@@ -163,7 +189,8 @@ def main():
     print(f"sigma (OOS {sig_season}) = {sigma:.2f}, mean residual = {resid.mean():+.2f}, n={len(te)}")
 
     mg, tg = fit(d)
-    S = team_states(d, Path(a.export_dir), a.box_dir, a.season, asof)
+    proj = season_projection(d, Path(a.export_dir), a.player_dir, a.season)
+    S = team_states(d, Path(a.export_dir), a.box_dir, a.season, asof, proj)
     S = S[S.espn_id.notna() & S.AdjEM.notna()]
     teams = sorted(S.index)
     recent = d[d.season == (a.season if len(done) else a.season - 1)]
