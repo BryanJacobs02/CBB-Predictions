@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import team_match as tm  # noqa: E402
 import box_features as bf  # noqa: E402
 import player_features as pf  # noqa: E402
+import preseason as ps  # noqa: E402
 
 RATING_COLS = ["AdjEM", "AdjOE", "AdjDE", "AdjTempo"]
 
@@ -122,6 +123,25 @@ def add_ratings(g, E):
     return g
 
 
+def add_preseason(g, E, player_dir):
+    """Replace 'last season's final ratings' with preseason projections that account for roster turnover."""
+    final = pd.read_csv(E / "kp_ratings.csv", usecols=["TeamName", "season"] + RATING_COLS)
+    ids = pd.concat([g[["season", "home_id", "kp_home"]].set_axis(["season", "team_id", "TeamName"], axis=1),
+                     g[["season", "away_id", "kp_away"]].set_axis(["season", "team_id", "TeamName"], axis=1)]).dropna()
+    ids["team_id"] = ids.team_id.astype("int64")
+    ids = ids.drop_duplicates(["season", "TeamName"], keep="last")
+    roster = ps.roster_features(ps.load_players(player_dir))
+    table = ps.team_season_table(final, roster, ids)
+    proj = ps.project(table, sorted(g.season.unique()))
+    for tag, col in (("h", "kp_home"), ("a", "kp_away")):
+        pj = g[["game_id", "season", col]].rename(columns={col: "TeamName"}).merge(proj, on=["TeamName", "season"], how="left")
+        for c in RATING_COLS:
+            g[f"rawprior_{c}_{tag}"] = g[f"prior_{c}_{tag}"]
+            g[f"prior_{c}_{tag}"] = pj[f"pre_{c}"].values
+            g[f"{c}_{tag}_eff"] = g[f"{c}_{tag}"].fillna(g[f"prior_{c}_{tag}"])
+    return g
+
+
 def add_market(g, odds_path):
     o = pd.concat([pd.read_csv(f, dtype=str) for f in str(odds_path).split(",")], ignore_index=True)
     o = o[o.has_odds == "TRUE"].copy()
@@ -168,6 +188,8 @@ def main():
     ap.add_argument("--r-file", default=str(Path(__file__).parent.parent / "R" / "game_results.R"))
     ap.add_argument("--box-dir", default=None, help="folder with team_box_{season}.parquet files")
     ap.add_argument("--player-dir", default=None, help="folder with player_box_{season}.parquet files")
+    ap.add_argument("--preseason-dir", default=None,
+                    help="folder with player_box_{season}.parquet: project preseason ratings from roster turnover")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     E = Path(a.export_dir)
@@ -176,6 +198,8 @@ def main():
     g = add_schedule_context(g)
     g = add_league_context(g)
     g = add_ratings(g, E)
+    if a.preseason_dir:
+        g = add_preseason(g, E, a.preseason_dir)
     if a.odds:
         g = add_market(g, a.odds)
     else:

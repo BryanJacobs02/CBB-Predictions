@@ -4,27 +4,27 @@
    "season": 2024,
    "model": "blend",
    "n": 5724,
-   "margin_MAE": 8.981,
-   "margin_RMSE": 11.345,
-   "winner_acc%": 71.9,
-   "total_MAE": 13.119
+   "margin_MAE": 8.949,
+   "margin_RMSE": 11.301,
+   "winner_acc%": 72.1,
+   "total_MAE": 13.115
   },
   {
    "season": 2025,
    "model": "blend",
    "n": 5748,
-   "margin_MAE": 8.949,
-   "margin_RMSE": 11.408,
-   "winner_acc%": 72.5,
-   "total_MAE": 12.928
+   "margin_MAE": 8.924,
+   "margin_RMSE": 11.357,
+   "winner_acc%": 72.4,
+   "total_MAE": 12.929
   },
   {
    "season": 2026,
    "model": "blend",
    "n": 5749,
-   "margin_MAE": 9.139,
-   "margin_RMSE": 11.528,
-   "winner_acc%": 71.9,
+   "margin_MAE": 9.098,
+   "margin_RMSE": 11.478,
+   "winner_acc%": 72.1,
    "total_MAE": 13.644
   }
  ],
@@ -43,13 +43,13 @@
   },
   {
    "model": "Lockbot 2.0 blend",
-   "margin_MAE": 8.985,
-   "winner_acc%": 70.1,
-   "total_MAE": 13.484
+   "margin_MAE": 8.979,
+   "winner_acc%": 70.2,
+   "total_MAE": 13.486
   }
  ],
  "winprob_2026": {
-  "sigma": 11.521199495050105,
+  "sigma": 11.469687322718386,
   "table": [
    {
     "source": "DraftKings (de-vigged ML)",
@@ -63,8 +63,8 @@
    },
    {
     "source": "Lockbot 2.0 blend, calibrated",
-    "Brier": 0.1877,
-    "LogLoss": 0.5493
+    "Brier": 0.1876,
+    "LogLoss": 0.5492
    }
   ]
  },

@@ -6,7 +6,7 @@ Run AFTER scripts/refresh_data.R (which pulls the current season's KenPom + ESPN
     python3 lockbot2/refresh.py --eval           # also refresh data/eval_v2.json (slower)
     python3 lockbot2/refresh.py --season 2027 --asof 2026-12-01   # pretend it is another date
 
-Steps: download newest ESPN team box scores (GitHub) -> rebuild the modeling table -> retrain the
+Steps: download newest ESPN team + player box scores (GitHub) -> rebuild the modeling table -> retrain the
 ridge+LightGBM blend on every completed game -> write data/predictions_v2.csv (+ .meta.json).
 Then commit data/, and deploy (R: deploy_lockbot()).
 """
@@ -46,6 +46,25 @@ def download_box(box_dir, season, first=2022):
                 raise
 
 
+PLAYER_URL = ("https://github.com/sportsdataverse/sportsdataverse-data/releases/download/"
+              "espn_mens_college_basketball_player_boxscores/player_box_{y}.parquet")
+
+
+def download_players(player_dir, season, first=2022):
+    """Player box scores feed the preseason projection (roster turnover). Optional: failures are not fatal."""
+    player_dir.mkdir(parents=True, exist_ok=True)
+    for y in range(first, season + 1):
+        f = player_dir / f"player_box_{y}.parquet"
+        if f.exists() and y < season:
+            continue
+        try:
+            urllib.request.urlretrieve(PLAYER_URL.format(y=y), f)
+            print(f"  player box scores {y}: {f.stat().st_size / 1e6:.1f} MB")
+        except urllib.error.HTTPError as e:
+            print(f"  player box scores {y}: not available ({e.code}); preseason projection may be skipped")
+            f.unlink(missing_ok=True)
+
+
 def run(cmd):
     print("\n$", " ".join(str(c) for c in cmd))
     subprocess.run([str(c) for c in cmd], check=True, cwd=ROOT)
@@ -55,6 +74,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--export-dir", default=str(ROOT / "lockbot_export"))
     ap.add_argument("--box-dir", default=str(ROOT / "lockbot_box"))
+    ap.add_argument("--player-dir", default=str(ROOT / "lockbot_players"))
     ap.add_argument("--season", type=int, default=current_season())
     ap.add_argument("--asof", default=None, help="YYYY-MM-DD (default: day after the last completed game)")
     ap.add_argument("--odds", default=None, help="optional odds csv(s), comma-separated (evaluation only)")
@@ -63,16 +83,17 @@ def main():
 
     print(f"Season {a.season}")
     download_box(Path(a.box_dir), a.season)
+    download_players(Path(a.player_dir), a.season)
 
     table = ROOT / "lockbot2" / "out" / "games_model.csv"
     cmd = [sys.executable, "-I", HERE / "build_dataset.py", "--export-dir", a.export_dir,
-           "--box-dir", a.box_dir, "--out", table]
+           "--box-dir", a.box_dir, "--preseason-dir", a.player_dir, "--out", table]
     if a.odds:
         cmd += ["--odds", a.odds]
     run(cmd)
 
     cmd = [sys.executable, "-I", HERE / "make_cache.py", "--data", table, "--export-dir", a.export_dir,
-           "--box-dir", a.box_dir, "--season", a.season, "--out", ROOT / "data" / "predictions_v2.csv"]
+           "--box-dir", a.box_dir, "--player-dir", a.player_dir, "--season", a.season, "--out", ROOT / "data" / "predictions_v2.csv"]
     if a.asof:
         cmd += ["--asof", a.asof]
     run(cmd)
