@@ -3,5 +3,5 @@ numpy
 scipy
 scikit-learn
 lightgbm
-pyarrow
+pyarrow<20          # newer versions need NumPy 2
 statsmodels
