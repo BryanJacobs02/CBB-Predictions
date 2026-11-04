@@ -81,6 +81,15 @@ def main():
     ap.add_argument("--eval", action="store_true", help="also rewrite data/eval_v2.json")
     a = ap.parse_args()
 
+    missing = []
+    for mod in ("pandas", "numpy", "scipy", "sklearn", "lightgbm", "pyarrow", "statsmodels"):
+        try:
+            __import__(mod)
+        except ImportError:
+            missing.append(mod)
+    if missing:
+        sys.exit(f"Missing Python packages: {', '.join(missing)}.\nInstall them with:  pip install -r lockbot2/requirements.txt")
+
     print(f"Season {a.season}")
     download_box(Path(a.box_dir), a.season)
     download_players(Path(a.player_dir), a.season)
