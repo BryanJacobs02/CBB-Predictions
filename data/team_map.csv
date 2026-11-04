@@ -139,6 +139,7 @@ Kent St.,2309
 Kentucky,96
 LIU,112358
 LSU,99
+LSU New Orleans,2443
 La Salle,2325
 Lafayette,322
 Lamar,2320
@@ -199,7 +200,6 @@ New Hampshire,160
 New Haven,2441
 New Mexico,167
 New Mexico St.,166
-New Orleans,2443
 Niagara,315
 Nicholls,2447
 Norfolk St.,2450
@@ -255,7 +255,6 @@ SIUE,2565
 SMU,2567
 Sacramento St.,16
 Sacred Heart,2529
-Saint Francis,2598
 Saint Joseph's,2603
 Saint Louis,139
 Saint Mary's,2608
@@ -364,3 +363,5 @@ Wyoming,2751
 Xavier,2752
 Yale,43
 Youngstown St.,2754
+New Orleans,2443
+Saint Francis,2598
