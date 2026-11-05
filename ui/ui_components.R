@@ -91,6 +91,8 @@ pick_card <- function(r) {
               if (isTRUE(r$neutral)) span(class = "pick-tag", "neutral site")),
           div(class = "pick-game", glue("{r$away} @ {r$home}")),
           div(class = "pick-model", model_txt)),
+      if (length(r$spread_pick) == 0 || (is.na(r$spread_pick) && is.na(r$total_pick)))
+        div(class = "pick-noline", "No sportsbook line posted yet, so no bet analysis. Model numbers only."),
       div(class = "pick-panels",
           pick_panel("Spread", r$spread_pick, r$spread_call, r$spread_edge, r$spread_ev, r$spread_stake,
                      r$spread_basis, sp_move, price = r$spread_price),

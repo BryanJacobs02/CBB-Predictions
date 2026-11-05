@@ -271,6 +271,8 @@ server <- function(input, output, session) {
             span(class = "picks-chip chip-bet",  tags$b(n_bet),  "bets"),
             span(class = "picks-chip chip-lean", tags$b(n_lean), "leans"),
             span(class = "picks-chip", tags$b(nrow(d)), "games"),
+            if (!is.null(attr(d, "stats")))
+              span(class = "picks-updated", glue("{attr(d, 'stats')$board} on the board, {attr(d, 'stats')$with_line} with a sportsbook line")),
             span(class = "picks-updated", glue("Lines pulled {d$generated_at[1]}"))) else
         p(class = "text-muted", "Open this tab or press the button to pull today's lines.")
     )

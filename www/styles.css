@@ -433,3 +433,5 @@ h1, h2, h3, h4, h5, h6, p, label, .text-muted {
 .bet-note { font-size: 0.78rem; color: var(--text-secondary); }
 
 .pick-price { font-size: 0.95rem; font-weight: 400; color: var(--text-secondary); }
+
+.pick-noline { font-size: 0.85rem; color: var(--text-secondary); background: var(--bg-dark); border: 1px dashed var(--border); border-radius: 8px; padding: 8px 12px; }
