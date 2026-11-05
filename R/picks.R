@@ -40,10 +40,13 @@ build_picks <- function(days_ahead = 1, cache = PREDICTION_CACHE_V2, progress = 
   games <- map_dfr(events, parse_event)
   message(glue("{nrow(games)} not yet started"))
 
+  no_lines <- function(id) tibble(game_id = id, spread_open = NA_real_, spread_now = NA_real_, total_open = NA_real_,
+                                  total_now = NA_real_, price_home = NA_real_, price_away = NA_real_,
+                                  price_over = NA_real_, price_under = NA_real_)
   get_lines <- function(id) {
     pc <- tryCatch(hoopR::espn_mbb_betting(game_id = id)$pickcenter, error = \(e) NULL)
     Sys.sleep(0.3)
-    if (is.null(pc) || nrow(pc) == 0) return(NULL)
+    if (is.null(pc) || nrow(pc) == 0) return(no_lines(id))      # no line posted yet: keep the game, model only
     pc <- as.data.frame(pc); pc <- pc[grepl("draft", pc$provider_name, ignore.case = TRUE), , drop = FALSE] |> (\(x) if (nrow(x)) x else as.data.frame(pc)[1, , drop = FALSE])()
     pc <- pc[1, , drop = FALSE]
     g <- \(col) if (col %in% names(pc)) pc[[col]] else NA
@@ -64,18 +67,20 @@ build_picks <- function(days_ahead = 1, cache = PREDICTION_CACHE_V2, progress = 
   }
   n_games <- nrow(games)
     lines <- map_dfr(seq_len(n_games), function(i) { if (!is.null(progress)) progress(i, n_games); get_lines(games$game_id[i]) })
-  message(glue("{nrow(lines)} games with DraftKings lines"))
-  if (nrow(lines) == 0) stop("No lines returned. Lines usually appear a day or less before tip-off; try again later.")
+  n_lines <- sum(!is.na(lines$spread_now) | !is.na(lines$total_now))
+  message(glue("{n_lines} of {nrow(lines)} games have a sportsbook line"))
+  if (n_lines == 0) stop("No lines returned. Lines usually appear a day or less before tip-off; try again later.")
 
   pick_weight <- function(open, now, hours) if (!is.na(open) && !is.na(now) && open == now && hours > 3) "open" else "close"
 
   rows <- games |> inner_join(lines, by = "game_id") |> mutate(row = row_number())
+  dropped <- new.env(); dropped$unmapped <- character(); dropped$no_cache <- character()
   res <- pmap_dfr(rows, function(...) {
     r <- list(...)
     hk <- kp_of[r$home_espn]; ak <- kp_of[r$away_espn]
-    if (is.na(hk) || is.na(ak)) return(NULL)
+    if (is.na(hk) || is.na(ak)) { dropped$unmapped <- c(dropped$unmapped, paste(r$away_name, "@", r$home_name)); return(NULL) }
     pr <- lookup_cached_prediction_v2(hk, ak, if (r$neutral) "neutral" else "a_home", cache)
-    if (is.null(pr)) return(NULL)
+    if (is.null(pr)) { dropped$no_cache <- c(dropped$no_cache, paste(r$away_name, "@", r$home_name)); return(NULL) }
     hours <- as.numeric(difftime(r$tip, Sys.time(), units = "hours"))
     out <- tibble(tip_et = format(as.POSIXct(r$tip, tz = "UTC"), tz = "America/New_York", "%a %b %d %I:%M %p"),
                   away = r$away_name, home = r$home_name, neutral = r$neutral,
@@ -106,5 +111,12 @@ build_picks <- function(days_ahead = 1, cache = PREDICTION_CACHE_V2, progress = 
   if (nrow(res) == 0) stop("No games could be matched to the prediction cache (check data/team_map.csv).")
 
   res$generated_at <- format(Sys.time(), tz = "America/New_York", "%Y-%m-%d %I:%M %p ET")
-  res |> arrange(desc(coalesce(spread_ev, -99) + coalesce(total_ev, -99)))
+  res <- res |> arrange(desc(coalesce(spread_ev, -99) + coalesce(total_ev, -99)))
+  # where games went: on the board -> have a line -> matched to a team in the model
+  attr(res, "stats") <- list(board = nrow(games), with_line = n_lines, shown = nrow(res),
+                             unmapped = dropped$unmapped, no_cache = dropped$no_cache)
+  if (length(dropped$unmapped) + length(dropped$no_cache) > 0)
+    message(glue("dropped {length(dropped$unmapped)} games with unmapped teams, {length(dropped$no_cache)} missing from the cache; ",
+                 "first few: {paste(head(c(dropped$unmapped, dropped$no_cache), 5), collapse = '; ')}"))
+  res
 }
